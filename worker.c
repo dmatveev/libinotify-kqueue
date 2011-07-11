@@ -5,14 +5,8 @@
 #include <assert.h>
 #include <stdio.h>
 
-#include "worker-sets.h"
+#include "worker-thread.h"
 #include "worker.h"
-
-struct worker {
-    int kq;           /* kqueue descriptor */
-    int io[2];        /* a socket pair */
-    worker_sets sets; /* kqueue events, filenames, etc */
-};
 
 
 worker*
@@ -37,6 +31,13 @@ worker_create ()
     }
 
     worker_sets_init (&wrk->sets, wrk->io[1]);
+
+    /* create a run a worker thread */
+    if (pthread_create (&wrk->thread, NULL, worker_thread, wrk) != 0) {
+        perror ("Failed to start a new worker thread");
+        goto failure;
+    }
+
     return wrk;
     
     failure:
