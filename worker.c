@@ -32,6 +32,8 @@ worker_create ()
 
     worker_sets_init (&wrk->sets, wrk->io[1]);
 
+    SIMPLEQ_INIT(&wrk->queue);
+
     /* create a run a worker thread */
     if (pthread_create (&wrk->thread, NULL, worker_thread, wrk) != 0) {
         perror ("Failed to start a new worker thread");

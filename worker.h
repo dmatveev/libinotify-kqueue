@@ -3,6 +3,8 @@
 
 #include <pthread.h>
 #include <stdint.h>
+#include <sys/queue.h>
+#include "worker-thread.h"
 #include "worker-sets.h"
 
 
@@ -15,6 +17,8 @@ typedef struct {
     int io[2];        /* a socket pair */
     pthread_t thread; /* worker thread */
     worker_sets sets; /* kqueue events, filenames, etc */
+
+    SIMPLEQ_HEAD(operations_queue, worker_cmd) queue;
 } worker;
 
 
