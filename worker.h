@@ -19,6 +19,7 @@ typedef struct {
     worker_sets sets; /* kqueue events, filenames, etc */
 
     SIMPLEQ_HEAD(operations_queue, worker_cmd) queue;
+    pthread_mutex_t queue_mutex;
 } worker;
 
 

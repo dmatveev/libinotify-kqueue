@@ -1,7 +1,7 @@
 #ifndef __WORKER_SETS_H__
 #define __WORKER_SETS_H__
 
-#include <sys/types.h>
+#include <sys/types.h> /* size_t */
 
 
 typedef struct worker_sets {
@@ -11,8 +11,9 @@ typedef struct worker_sets {
 } worker_sets;
 
 
-void worker_sets_init (worker_sets *ws, int fd);
-void worker_sets_free (worker_sets *ws);
+void worker_sets_init   (worker_sets *ws, int fd);
+int  worker_sets_extend (worker_sets *ws, int count);
+void worker_sets_free   (worker_sets *ws);
 
 
 #endif /* __WORKER_SETS_H__ */

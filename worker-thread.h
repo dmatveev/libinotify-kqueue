@@ -22,7 +22,7 @@ typedef struct worker_cmd {
 
     union {
         struct {
-            const char *filename;
+            char *filename;
             uint32_t mask;
         } add;
 
