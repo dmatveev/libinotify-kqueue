@@ -1,36 +1,37 @@
 #include <sys/event.h>
 #include <stddef.h> /* NULL */
 #include <assert.h>
-#include <stdio.h> /* perror */
+#include <unistd.h> /* write */
+#include <stdlib.h> /* calloc */
+#include <stdio.h>  /* perror */
 
+#include "inotify.h"
 #include "worker.h"
 #include "worker-thread.h"
 
+static uint32_t
+kqueue_to_inotify (uint32_t flags)
+{
+    // TODO: implementation
+    return 0;
+}
+
 static void
-process_commands (worker *wrk)
+process_command (worker *wrk)
 {
     assert (wrk != NULL);
 
-    pthread_mutex_lock (&wrk->queue_mutex);
-
-    // TODO: pointer to queue?
-    while (!SIMPLEQ_EMPTY (&wrk->queue)) {
-        worker_cmd *cmd = SIMPLEQ_FIRST (&wrk->queue);
-        assert (cmd != NULL);
-
-        if (cmd->type == WCMD_ADD) {
-            *cmd->feedback.retval
-                = worker_add_or_modify (wrk, cmd->add.filename, cmd->add.mask);
-        }
-        else if (cmd->type == WCMD_REMOVE) {
-            /* *cmd->feedback.retval = worker_remove (wrk, cmd->rm_id); */
-        }
-
-        SIMPLEQ_REMOVE_HEAD (&wrk->queue, entries);
-        pthread_barrier_wait (&cmd->sync);
+    // TODO: return value
+    if (wrk->cmd.type == WCMD_ADD) {
+        worker_add_or_modify (wrk, wrk->cmd.add.filename, wrk->cmd.add.mask);
+    } else if (wrk->cmd.type == WCMD_REMOVE) {
+        worker_remove (wrk, wrk->cmd.rm_id);
+    } else {
+        // TODO: signal error
     }
 
-    pthread_mutex_unlock (&wrk->queue_mutex);
+    // TODO: is the situation when nobody else waits on a barrier possible?
+    pthread_barrier_wait (&wrk->cmd.sync);
 }
 
 void*
@@ -38,30 +39,29 @@ worker_thread (void *arg)
 {
     assert (arg != NULL);
     worker* wrk = (worker *) arg;
-    worker_sets *sets = &wrk->sets;
-
-    // TODO: initialize a first element with a control FD
-    EV_SET (&sets->events[0],
-            wrk->io[KQUEUE_FD],
-            EVFILT_READ,
-            EV_ADD | EV_ENABLE | EV_ONESHOT,
-            NOTE_LOWAT,
-            1,
-            0);
-    sets->length = 1;
 
     for (;;) {
         struct kevent received;
 
-        int ret = kevent (wrk->kq, wrk->sets.events, wrk->sets.length, &received, 1, NULL);
+        int ret = kevent (wrk->kq,
+                          wrk->sets.events,
+                          wrk->sets.length,
+                          &received,
+                          1,
+                          NULL);
         if (ret == -1) {
             perror ("kevent failed");
             continue;
         }
-
         if (received.ident == wrk->io[KQUEUE_FD]) {
-            /* got a notification, process pending commands now */
-            process_commands (wrk);
+            process_command (wrk);
+        } else {
+            // TODO: write also name
+            struct inotify_event *event = calloc (1, sizeof (struct inotify_event));
+            event->wd = received.ident; /* remember that watch id is a fd? */
+            event->mask = kqueue_to_inotify (received.fflags);
+            write (wrk->io[KQUEUE_FD], event, sizeof (struct inotify_event));
+            free (event);
         }
     }
     return NULL;

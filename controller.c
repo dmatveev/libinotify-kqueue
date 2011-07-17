@@ -47,41 +47,30 @@ inotify_add_watch (int         fd,
                    uint32_t    mask) __THROW
 {
     /* look up for an appropriate thread */
-    // TODO: lock workers when looking up
     pthread_mutex_lock (&workers_mutex);
 
     int i;
     for (i = 0; i < WORKER_SZ; i++) {
         if (workers[i]->io[INOTIFY_FD] == fd) {
             worker *wrk = workers[i];
-            worker_cmd *cmd = calloc (1, sizeof (worker_cmd));
-
-            // TODO: check allocation
-            int retval = -1; // TODO: no magic numbers here
-            int error = 0;   // TODO: and here
+            pthread_mutex_lock (&wrk->mutex);
 
             // TODO: hide these details
-            cmd->type = WCMD_ADD;
-            cmd->feedback.retval = &retval;
-            cmd->feedback.error  = &error;
-            cmd->add.filename = strdup (name);
-            cmd->add.mask = mask;
-            pthread_barrier_init (&cmd->sync, NULL, 2);
-
-            pthread_mutex_lock (&wrk->queue_mutex);
-            SIMPLEQ_INSERT_TAIL (&wrk->queue, cmd, entries);
-            pthread_mutex_unlock (&wrk->queue_mutex);
+            worker_cmd_reset (&wrk->cmd);
+            wrk->cmd.type = WCMD_ADD;
+            wrk->cmd.add.filename = strdup (name);
+            wrk->cmd.add.mask = mask;
+            pthread_barrier_init (&wrk->cmd.sync, NULL, 2);
 
             write (wrk->io[INOTIFY_FD], "*", 1); // TODO: EINTR
-            pthread_barrier_wait (&cmd->sync);
+            pthread_barrier_wait (&wrk->cmd.sync);
 
             // TODO: hide these details too
-            free (cmd->add.filename);
-            free (cmd);
+            pthread_barrier_destroy (&wrk->cmd.sync);
 
             // TODO: check error here
             pthread_mutex_unlock (&workers_mutex);
-            return retval;
+            return -1; // TODO: obtain return value
         }
     }
 
@@ -103,33 +92,24 @@ inotify_rm_watch (int fd,
     for (i = 0; i < WORKER_SZ; i++) {
         if (workers[i]->io[INOTIFY_FD] == fd) {
             worker *wrk = workers[i];
-            worker_cmd *cmd = calloc (1, sizeof (worker_cmd));
+            pthread_mutex_lock (&wrk->mutex);
 
-            // TODO: check allocation
-            int retval = -1; // TODO magick number
-            int error = 0;
-
-            cmd->type = WCMD_REMOVE;
-            cmd->rm_id = fd;
-            cmd->feedback.retval = &retval;
-            cmd->feedback.error = &error;
-            pthread_barrier_init (&cmd->sync, NULL, 2);
-
-            pthread_mutex_lock (&wrk->queue_mutex);
-            SIMPLEQ_INSERT_TAIL (&wrk->queue, cmd, entries);
-            pthread_mutex_unlock (&wrk->queue_mutex);
+            // TODO: hide these details
+            worker_cmd_reset (&wrk->cmd);
+            wrk->cmd.type = WCMD_REMOVE;
+            wrk->cmd.rm_id = fd;
+            pthread_barrier_init (&wrk->cmd.sync, NULL, 2);
 
             write (wrk->io[INOTIFY_FD], "*", 1); // TODO: EINTR
-            pthread_barrier_wait (&cmd->sync);
+            pthread_barrier_wait (&wrk->cmd.sync);
 
             // TODO: hide these details too
-            free (cmd->add.filename);
-            free (cmd);
+            pthread_barrier_destroy (&wrk->cmd.sync);
 
             // TODO: check error here
             // TODO: unlock workers earlier?
             pthread_mutex_unlock (&workers_mutex);
-            return retval;
+            return -1; // TODO: obtain return value
         }
     }
     

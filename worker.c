@@ -10,6 +10,15 @@
 #include "worker.h"
 
 
+void
+worker_cmd_reset (worker_cmd *cmd)
+{
+    assert (cmd != NULL);
+
+    free (cmd->add.filename);
+    memset (cmd, 0, sizeof (worker_cmd));
+}
+
 worker*
 worker_create ()
 {
@@ -31,10 +40,8 @@ worker_create ()
         goto failure;
     }
 
-    worker_sets_init (&wrk->sets, wrk->io[1]);
-
-    SIMPLEQ_INIT (&wrk->queue);
-    pthread_mutex_init (&wrk->queue_mutex, NULL);
+    worker_sets_init (&wrk->sets, wrk->io[KQUEUE_FD]);
+    pthread_mutex_init (&wrk->mutex, NULL);
 
     /* create a run a worker thread */
     if (pthread_create (&wrk->thread, NULL, worker_thread, wrk) != 0) {
@@ -45,7 +52,9 @@ worker_create ()
     return wrk;
     
     failure:
-    worker_free (wrk);
+    if (wrk != NULL) {
+        worker_free (wrk);
+    }
     return NULL;
 }
 
@@ -53,10 +62,10 @@ worker_create ()
 void
 worker_free (worker *wrk)
 {
-    if (wrk == NULL)
-        return;
+    assert (wrk != NULL);
 
-    // TODO: implementation
+    worker_sets_free (&wrk->sets);
+    free (wrk);
 }
 
 
@@ -74,6 +83,7 @@ worker_add_or_modify (worker     *wrk,
     int i = 0;
     int fd = -1;
 
+    // look up for an entry with this filename
     for (i = 0; i < wrk->sets.length; i++) {
         if (wrk->sets.filenames[i] != NULL &&
             strcmp (path, wrk->sets.filenames[i]) == 0) {
@@ -110,10 +120,26 @@ worker_add_or_modify (worker     *wrk,
 
 
 int
-worker_remove_many (worker *wrk,
-                    int    *ids,
-                    int     count)
+worker_remove (worker *wrk,
+               int     id)
 {
-    // TODO: implementation
+    assert (wrk != NULL);
+    assert (id != -1);
+
+    int i;
+    int last = wrk->sets.length - 1;
+    for (i = 0; i < wrk->sets.length; i++) {
+        if (wrk->sets.events[i].ident == id) {
+            free (wrk->sets.filenames[i]);
+
+            if (i != last) {
+                wrk->sets.events[i] = wrk->sets.events[last];
+                wrk->sets.filenames[i] = wrk->sets.filenames[last];
+            }
+            wrk->sets.filenames[last] = NULL;
+            --wrk->sets.length;
+            return 0;
+        }
+    }
     return -1;
 }
