@@ -27,7 +27,7 @@ worker* worker_create        ();
 void    worker_free          (worker *wrk);
 
 int     worker_add_or_modify (worker *wrk, const char *path, uint32_t flags);
-void    worker_remove        (worker *wrk, int id);
+int     worker_remove_many   (worker *wrk, int *ids, int count);
 
 
 #endif /* __WORKER_H__ */

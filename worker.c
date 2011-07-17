@@ -109,9 +109,11 @@ worker_add_or_modify (worker     *wrk,
 }
 
 
-void
-worker_remove (worker *wrk,
-               int     id)
+int
+worker_remove_many (worker *wrk,
+                    int    *ids,
+                    int     count)
 {
     // TODO: implementation
+    return -1;
 }

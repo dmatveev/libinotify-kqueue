@@ -20,9 +20,10 @@ process_commands (worker *wrk)
 
         if (cmd->type == WCMD_ADD) {
             *cmd->feedback.retval
-                = worker_add_or_modify (wrk,cmd->add.filename, cmd->add.mask);
+                = worker_add_or_modify (wrk, cmd->add.filename, cmd->add.mask);
         }
         else if (cmd->type == WCMD_REMOVE) {
+            /* *cmd->feedback.retval = worker_remove (wrk, cmd->rm_id); */
         }
 
         SIMPLEQ_REMOVE_HEAD (&wrk->queue, entries);

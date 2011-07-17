@@ -2,6 +2,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <assert.h>
+
 #include "worker.h"
 #include "inotify.h"
 
@@ -47,11 +49,13 @@ inotify_add_watch (int         fd,
     /* look up for an appropriate thread */
     // TODO: lock workers when looking up
     pthread_mutex_lock (&workers_mutex);
+
     int i;
     for (i = 0; i < WORKER_SZ; i++) {
         if (workers[i]->io[INOTIFY_FD] == fd) {
             worker *wrk = workers[i];
             worker_cmd *cmd = calloc (1, sizeof (worker_cmd));
+
             // TODO: check allocation
             int retval = -1; // TODO: no magic numbers here
             int error = 0;   // TODO: and here
@@ -81,6 +85,7 @@ inotify_add_watch (int         fd,
         }
     }
 
+    // TODO: unlock workers earlier?
     pthread_mutex_unlock (&workers_mutex);
     return -1;
 }
@@ -89,6 +94,45 @@ int
 inotify_rm_watch (int fd,
                   int wd) __THROW
 {
-    // TODO: implementation
+    assert (fd != -1);
+    assert (wd != -1);
+    
+    pthread_mutex_lock (&workers_mutex);
+
+    int i;
+    for (i = 0; i < WORKER_SZ; i++) {
+        if (workers[i]->io[INOTIFY_FD] == fd) {
+            worker *wrk = workers[i];
+            worker_cmd *cmd = calloc (1, sizeof (worker_cmd));
+
+            // TODO: check allocation
+            int retval = -1; // TODO magick number
+            int error = 0;
+
+            cmd->type = WCMD_REMOVE;
+            cmd->rm_id = fd;
+            cmd->feedback.retval = &retval;
+            cmd->feedback.error = &error;
+            pthread_barrier_init (&cmd->sync, NULL, 2);
+
+            pthread_mutex_lock (&wrk->queue_mutex);
+            SIMPLEQ_INSERT_TAIL (&wrk->queue, cmd, entries);
+            pthread_mutex_unlock (&wrk->queue_mutex);
+
+            write (wrk->io[INOTIFY_FD], "*", 1); // TODO: EINTR
+            pthread_barrier_wait (&cmd->sync);
+
+            // TODO: hide these details too
+            free (cmd->add.filename);
+            free (cmd);
+
+            // TODO: check error here
+            // TODO: unlock workers earlier?
+            pthread_mutex_unlock (&workers_mutex);
+            return retval;
+        }
+    }
+    
+    pthread_mutex_unlock (&workers_mutex);
     return 0;
 }
