@@ -8,6 +8,7 @@ typedef struct worker_sets {
     struct kevent *events;  /* kevent entries */
     char **filenames;       /* file name for each entry */
     size_t length;          /* size of active entries */
+    size_t allocated;       /* size of allocated entries */
 } worker_sets;
 
 

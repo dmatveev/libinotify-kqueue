@@ -19,6 +19,8 @@ typedef struct worker_cmd {
         WCMD_REMOVE,
     } type;
 
+    int retval;
+
     union {
         struct {
             char *filename;

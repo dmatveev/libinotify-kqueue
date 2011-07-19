@@ -138,6 +138,8 @@ worker_remove (worker *wrk,
             }
             wrk->sets.filenames[last] = NULL;
             --wrk->sets.length;
+
+            // TODO: reduce the allocated memory size here
             return 0;
         }
     }

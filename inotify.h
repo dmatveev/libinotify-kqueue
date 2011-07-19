@@ -46,6 +46,15 @@ struct inotify_event
 #define IN_DELETE_SELF   0x00000400 /* Self was deleted.  */
 #define IN_MOVE_SELF     0x00000800 /* Self was moved.  */
 
+/*
+ * All of the events - we build the list by hand so that we can add flags in
+ * the future and not break backward compatibility.  Apps will get only the
+ * events that they originally wanted.  Be sure to add new events here!
+ */
+#define IN_ALL_EVENTS	(IN_ACCESS | IN_MODIFY | IN_ATTRIB | IN_CLOSE_WRITE | \
+			 IN_CLOSE_NOWRITE | IN_OPEN | IN_MOVED_FROM | \
+			 IN_MOVED_TO | IN_DELETE | IN_CREATE | IN_DELETE_SELF)
+
 
 /* Create and initialize inotify-kqueue instance. */
 int inotify_init (void) __THROW;

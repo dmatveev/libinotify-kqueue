@@ -1,16 +1,45 @@
+#include <sys/event.h>
 #include <stddef.h> /* NULL */
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <assert.h>
+#include <stdio.h> /* printf */
 
 #include "worker.h"
 #include "inotify.h"
 
 
 #define WORKER_SZ 100
-static worker* workers[WORKER_SZ];
+static worker* workers[WORKER_SZ] = {NULL};
 static pthread_mutex_t workers_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+static uint32_t
+inotify_flags_to_kqueue (uint32_t flags)
+{
+    uint32_t result = 0;
+    static const uint32_t NOTE_MODIFIED = (NOTE_WRITE | NOTE_EXTEND);
+
+    // TODO: context-specific flags
+    if (flags & IN_ATTRIB)
+        result |= NOTE_ATTRIB;
+    if (flags & IN_MODIFY)
+        result |= NOTE_MODIFIED;
+    if (flags & IN_MOVED_FROM) // TODO: DIRECTORIES ONLY!
+        result |= NOTE_MODIFIED;
+    if (flags & IN_MOVED_TO) // TODO: DIRECTORIES ONLY!
+        result |= NOTE_MODIFIED;
+    if (flags & IN_CREATE) // TODO: DIRECTORIES ONLY!
+        result |= NOTE_MODIFIED;
+    if (flags & IN_DELETE) // TODO: DIRECTORIES ONLY!
+        result |= NOTE_MODIFIED;
+    if (flags & IN_DELETE_SELF)
+        result |= NOTE_DELETE;
+    if (flags & IN_MOVE_SELF)
+        result |= NOTE_RENAME;
+
+    return result;
+}
 
 int
 inotify_init (void) __THROW
@@ -21,7 +50,7 @@ inotify_init (void) __THROW
     for (i = 0; i < WORKER_SZ; i++) {
         if (workers[i] == NULL) {
             worker *wrk = worker_create ();
-            if (wrk) {
+            if (wrk != NULL) {
                 workers[i] = wrk;
                 pthread_mutex_unlock (&workers_mutex);
                 return wrk->io[INOTIFY_FD];
@@ -59,7 +88,7 @@ inotify_add_watch (int         fd,
             worker_cmd_reset (&wrk->cmd);
             wrk->cmd.type = WCMD_ADD;
             wrk->cmd.add.filename = strdup (name);
-            wrk->cmd.add.mask = mask;
+            wrk->cmd.add.mask = inotify_flags_to_kqueue (mask);
             pthread_barrier_init (&wrk->cmd.sync, NULL, 2);
 
             write (wrk->io[INOTIFY_FD], "*", 1); // TODO: EINTR
@@ -70,7 +99,7 @@ inotify_add_watch (int         fd,
 
             // TODO: check error here
             pthread_mutex_unlock (&workers_mutex);
-            return -1; // TODO: obtain return value
+            return wrk->cmd.retval;
         }
     }
 
