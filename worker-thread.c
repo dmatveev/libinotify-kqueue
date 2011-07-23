@@ -21,7 +21,7 @@ kqueue_to_inotify (uint32_t flags)
     return result;
 }
 
-static void
+void
 process_command (worker *wrk)
 {
     assert (wrk != NULL);
@@ -66,12 +66,20 @@ worker_thread (void *arg)
         if (received.ident == wrk->io[KQUEUE_FD]) {
             process_command (wrk);
         } else {
-            // TODO: write also name
-            struct inotify_event *event = calloc (1, sizeof (struct inotify_event));
-            event->wd = received.ident; /* remember that watch id is a fd? */
-            event->mask = kqueue_to_inotify (received.fflags);
-            write (wrk->io[KQUEUE_FD], event, sizeof (struct inotify_event));
-            free (event);
+            if (wrk->sets.watches[received.udata].type == WATCH_USER) {
+                // TODO: write also name
+                struct inotify_event *event = calloc (1, sizeof (struct inotify_event));
+                event->wd = received.ident; /* remember that watch id is a fd? */
+                event->mask = kqueue_to_inotify (received.fflags);
+                write (wrk->io[KQUEUE_FD], event, sizeof (struct inotify_event));
+                free (event);
+            } else {
+                struct inotify_event *event = calloc (1, sizeof (struct inotify_event));
+                event->wd = wrk->sets.watches[received.udata].parent->fd;
+                event->mask = kqueue_to_inotify (received.fflags);
+                write (wrk->io[KQUEUE_FD], event, sizeof (struct inotify_event));
+                free (event);
+            }
         }
     }
     return NULL;

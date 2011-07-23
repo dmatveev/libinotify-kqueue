@@ -1,5 +1,5 @@
 APP=test
-APP_CFLAGS=-O2 -Wall
+APP_CFLAGS=-O2 -Wall -ggdb
 APP_LDFLAGS=-lpthread
 
 CC=gcc
