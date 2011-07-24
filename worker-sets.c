@@ -4,10 +4,113 @@
 #include <stddef.h> /* NULL */
 #include <fcntl.h>  /* open, fstat */
 #include <stdio.h>  /* perror */
+#include <dirent.h> /* opendir, readdir, closedir */
 #include <sys/event.h>
 
 #include "inotify.h"
 #include "worker-sets.h"
+
+
+dep_list *
+dl_shallow_copy (dep_list *dl)
+{
+    assert (dl != NULL);
+
+    dep_list *head = malloc (sizeof (dep_list)); // TODO: check allocation
+    dep_list *cp = head;
+    dep_list *it = dl;
+
+    while (it != NULL) {
+        cp->fd = it->fd;
+        cp->path = it->path;
+        if (it->next) {
+            cp->next = malloc (sizeof (dep_list)); // TODO: check allocation
+            cp = cp->next;
+        }
+        it = it->next;
+    }
+
+    return head;
+}
+
+dep_list *
+dl_listing (const char *path)
+{
+    assert (path != NULL);
+
+    dep_list *head = calloc (1, sizeof (dep_list)); // TODO: check allocation
+    dep_list *prev = NULL;
+    DIR *dir = opendir (path);
+    if (dir != NULL) {
+        struct dirent *ent;
+
+        while ((ent = readdir (dir)) != NULL) {
+            if (!strcmp (ent->d_name, ".") || !strcmp (ent->d_name, "..")) {
+                continue;
+            }
+
+             // TODO: check allocation
+            dep_list *iter = (prev == NULL) ? head : calloc (1, sizeof (dep_list));
+            iter->path = strdup (ent->d_name);
+            iter->next = NULL;
+            if (prev) {
+                prev->next = iter;
+            }
+            prev = iter;
+        }
+
+        closedir (dir);
+    }
+    return head;
+}
+
+void dl_diff (dep_list **before, dep_list **after)
+{
+    assert (before != NULL);
+    assert (after != NULL);
+
+    dep_list *before_iter = *before;
+    dep_list *before_prev = NULL;
+
+    assert (before_iter != NULL);
+
+    while (before_iter != NULL) {
+        dep_list *after_iter = *after;
+        dep_list *after_prev = NULL;
+
+        int matched = 0;
+        while (after_iter != NULL) {
+            if (strcmp (before_iter->path, after_iter->path) == 0) {
+                matched = 1;
+                /* removing the entry from the both lists */
+                if (before_prev) {
+                    before_prev->next = before_iter->next;
+                } else {
+                    *before = before_iter->next;
+                }
+
+                if (after_prev) {
+                    after_prev->next = after_iter->next;
+                } else {
+                    *after = after_iter->next;
+                }
+                free (after_iter);
+                break;
+            }
+            after_prev = after_iter;
+            after_iter = after_iter->next;
+        }
+
+        dep_list *oldptr = before_iter;
+        before_iter = before_iter->next;
+        if (matched == 0) {
+            before_prev = oldptr;
+        } else {
+            free (oldptr);
+        }
+    }
+}
+
 
 static uint32_t
 inotify_flags_to_kqueue (uint32_t flags, int is_directory)

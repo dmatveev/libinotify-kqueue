@@ -44,6 +44,29 @@ process_command (worker *wrk)
     pthread_barrier_wait (&wrk->cmd.sync);
 }
 
+struct inotify_event*
+produce_notification (worker *wrk, struct kevent *event)
+{
+    assert (wrk != NULL);
+    assert (event != NULL);
+
+    struct inotify_event *ie = calloc (1, sizeof (struct inotify_event));
+
+    if (wrk->sets.watches[event->udata].type == WATCH_USER) {
+        if (event->fflags & (NOTE_WRITE | NOTE_EXTEND)) {
+            // a change has occured in a directory
+            // calculate diffs here
+        }
+        // TODO: write also name
+        ie->wd = event->ident; /* remember that watch id is a fd? */
+    } else {
+        ie->wd = wrk->sets.watches[event->udata].parent->fd;
+    }
+    ie->mask = kqueue_to_inotify (event->fflags);
+
+    return ie;
+}
+
 void*
 worker_thread (void *arg)
 {
@@ -66,20 +89,9 @@ worker_thread (void *arg)
         if (received.ident == wrk->io[KQUEUE_FD]) {
             process_command (wrk);
         } else {
-            if (wrk->sets.watches[received.udata].type == WATCH_USER) {
-                // TODO: write also name
-                struct inotify_event *event = calloc (1, sizeof (struct inotify_event));
-                event->wd = received.ident; /* remember that watch id is a fd? */
-                event->mask = kqueue_to_inotify (received.fflags);
-                write (wrk->io[KQUEUE_FD], event, sizeof (struct inotify_event));
-                free (event);
-            } else {
-                struct inotify_event *event = calloc (1, sizeof (struct inotify_event));
-                event->wd = wrk->sets.watches[received.udata].parent->fd;
-                event->mask = kqueue_to_inotify (received.fflags);
-                write (wrk->io[KQUEUE_FD], event, sizeof (struct inotify_event));
-                free (event);
-            }
+            struct inotify_event *event = produce_notification (wrk, &received);
+            write (wrk->io[KQUEUE_FD], event, sizeof (struct inotify_event));
+            free (event);
         }
     }
     return NULL;

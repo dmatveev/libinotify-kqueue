@@ -80,11 +80,11 @@ worker_add_dependencies (worker        *wrk,
     assert (event != NULL);
 
     // start watching also on its contents
-    DIR *dir = opendir((const char*) parent->filename);
+    DIR *dir = opendir (parent->filename);
     if (dir != NULL) {
         struct dirent *ent;
 
-        while ((ent = readdir(dir)) != NULL) {
+        while ((ent = readdir (dir)) != NULL) {
             if (!strcmp (ent->d_name, ".") || !strcmp (ent->d_name, "..")) {
                 continue;
             }
@@ -113,6 +113,7 @@ worker_add_dependencies (worker        *wrk,
                 dep_list *entry = calloc (1, sizeof (dep_list));
                 entry->next = parent->deps;
                 entry->fd = wrk->sets.events[index].ident;
+                entry->path = strdup (ent->d_name);
                 parent->deps = entry;
             }
             printf ("Watching also on %s\n", full_path);

@@ -6,8 +6,14 @@
 
 typedef struct dep_list {
     struct dep_list *next;
+
     int fd;
+    const char *path;
 } dep_list;
+
+dep_list* dl_shallow_copy (dep_list *dl);
+dep_list* dl_listing      (const char *path);
+void      dl_diff         (dep_list **before, dep_list **after);
 
 
 #define WATCH_USER       0
