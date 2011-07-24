@@ -104,7 +104,7 @@ worker_add_dependencies (worker        *wrk,
 
             if (watch_init_dependency (&wrk->sets.watches[index],
                                        &wrk->sets.events[index],
-                                       full_path,
+                                       full_path, // do we really need a full path?
                                        parent->flags,
                                        index)
                 == 0) {

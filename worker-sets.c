@@ -153,7 +153,7 @@ inotify_flags_to_kqueue (uint32_t flags, int is_directory)
     static const uint32_t NOTE_MODIFIED = (NOTE_WRITE | NOTE_EXTEND);
 
     if (flags & IN_ATTRIB)
-        result |= NOTE_ATTRIB;
+        result |= (NOTE_ATTRIB | NOTE_LINK);
     if (flags & IN_MODIFY)
         result |= NOTE_MODIFIED;
     if (flags & IN_MOVED_FROM && is_directory)
