@@ -4,9 +4,11 @@
 #include <unistd.h> /* write */
 #include <stdlib.h> /* calloc */
 #include <stdio.h>  /* perror */
+#include <string.h> /* memset */
 
 #include "inotify.h"
 #include "worker.h"
+#include "worker-sets.h"
 #include "worker-thread.h"
 
 static uint32_t
@@ -44,27 +46,115 @@ process_command (worker *wrk)
     pthread_barrier_wait (&wrk->cmd.sync);
 }
 
-struct inotify_event*
-produce_notification (worker *wrk, struct kevent *event)
+// TODO: drop unnecessary arguments
+void
+produce_directory_moves (worker         *wrk,
+                         watch          *w,
+                         struct kevent  *event,
+                         dep_list      **was, // TODO: removed
+                         dep_list      **now) // TODO: added
+{
+    assert (wrk != NULL);
+    assert (w != NULL);
+    assert (event != NULL);
+    assert (was != NULL);
+    assert (now != NULL);
+
+    dep_list *was_iter = *was;
+    dep_list *was_prev = NULL;
+
+    assert (was_iter != NULL);
+
+    while (was_iter != NULL) {
+        dep_list *now_iter = *now;
+        dep_list *now_prev = NULL;
+
+        int matched = 0;
+        while (now_iter != NULL) {
+            if (was_iter->inode == now_iter->inode) {
+                matched = 1;
+                printf ("%s was renamed to %s\n", was_iter->path, now_iter->path);
+
+                if (was_prev) {
+                    was_prev->next = was_iter->next;
+                } else {
+                    *was = was_iter->next;
+                }
+
+                if (now_prev) {
+                    now_prev->next = now_iter->next;
+                } else {
+                    *now = now_iter->next;
+                }
+                // TODO: free smt
+                break;
+            }
+        }
+
+        dep_list *oldptr = was_iter;
+        was_iter = was_iter->next;
+        if (matched == 0) {
+            was_prev = oldptr;
+        } else {
+            free (oldptr); // TODO: dl_free?
+        }
+    }
+}
+
+// TODO: drop unnecessary arguments
+void
+produce_directory_diff (worker *wrk, watch *w, struct kevent *event)
+{
+    assert (wrk != NULL);
+    assert (w != NULL);
+    assert (event != NULL);
+
+    assert (w->type == WATCH_USER);
+    assert (w->is_directory);
+
+    dep_list *was = NULL, *now = NULL;
+    was = dl_shallow_copy (w->deps);
+    dl_shallow_free (w->deps);
+
+    w->deps = dl_listing (w->filename);
+    now = dl_shallow_copy (w->deps);
+
+    dl_diff (&was, &now);
+
+    produce_directory_moves (wrk, w, event, &was, &now);
+
+    printf ("Removed:\n");
+    dl_print (was);
+    printf ("Added:\n");
+    dl_print (now);
+
+    dl_shallow_free (now);
+    dl_free (was);
+}
+
+void
+produce_notifications (worker *wrk, struct kevent *event)
 {
     assert (wrk != NULL);
     assert (event != NULL);
 
-    struct inotify_event *ie = calloc (1, sizeof (struct inotify_event));
+    struct inotify_event ie;
+    memset (&ie, 0, sizeof (struct inotify_event));
 
     if (wrk->sets.watches[event->udata].type == WATCH_USER) {
-        if (event->fflags & (NOTE_WRITE | NOTE_EXTEND)) {
-            // a change has occured in a directory
-            // calculate diffs here
+        if (wrk->sets.watches[event->udata].is_directory
+            && (event->fflags & (NOTE_WRITE | NOTE_EXTEND))) {
+            produce_directory_diff (wrk, &wrk->sets.watches[event->udata], event);
         }
         // TODO: write also name
-        ie->wd = event->ident; /* remember that watch id is a fd? */
+        ie.wd = event->ident; /* remember that watch id is a fd? */
     } else {
-        ie->wd = wrk->sets.watches[event->udata].parent->fd;
+        ie.wd = wrk->sets.watches[event->udata].parent->fd;
     }
-    ie->mask = kqueue_to_inotify (event->fflags);
+    ie.mask = kqueue_to_inotify (event->fflags);
 
-    return ie;
+    // TODO: EINTR
+    write (wrk->io[KQUEUE_FD], &ie, sizeof (struct inotify_event));
 }
 
 void*
@@ -89,9 +179,7 @@ worker_thread (void *arg)
         if (received.ident == wrk->io[KQUEUE_FD]) {
             process_command (wrk);
         } else {
-            struct inotify_event *event = produce_notification (wrk, &received);
-            write (wrk->io[KQUEUE_FD], event, sizeof (struct inotify_event));
-            free (event);
+            produce_notifications (wrk, &received);
         }
     }
     return NULL;

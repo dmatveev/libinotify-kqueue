@@ -11,20 +11,31 @@
 #include "worker-sets.h"
 
 
-dep_list *
+void
+dl_print (dep_list *dl)
+{
+    while (dl != NULL) {
+        printf ("%lld:%s ", dl->inode, dl->path);
+        dl = dl->next;
+    }
+    printf ("\n");
+}
+
+dep_list*
 dl_shallow_copy (dep_list *dl)
 {
     assert (dl != NULL);
 
-    dep_list *head = malloc (sizeof (dep_list)); // TODO: check allocation
+    dep_list *head = calloc (1, sizeof (dep_list)); // TODO: check allocation
     dep_list *cp = head;
     dep_list *it = dl;
 
     while (it != NULL) {
         cp->fd = it->fd;
         cp->path = it->path;
+        cp->inode = it->inode;
         if (it->next) {
-            cp->next = malloc (sizeof (dep_list)); // TODO: check allocation
+            cp->next = calloc (1, sizeof (dep_list)); // TODO: check allocation
             cp = cp->next;
         }
         it = it->next;
@@ -33,7 +44,29 @@ dl_shallow_copy (dep_list *dl)
     return head;
 }
 
-dep_list *
+void
+dl_shallow_free (dep_list *dl)
+{
+    while (dl != NULL) {
+        dep_list *ptr = dl;
+        dl = dl->next;
+        free (ptr);
+    }
+}
+
+void
+dl_free (dep_list *dl)
+{
+    while (dl != NULL) {
+        dep_list *ptr = dl;
+        dl = dl->next;
+
+        free (ptr->path);
+        free (ptr);
+    }
+}
+
+dep_list*
 dl_listing (const char *path)
 {
     assert (path != NULL);
@@ -52,6 +85,7 @@ dl_listing (const char *path)
              // TODO: check allocation
             dep_list *iter = (prev == NULL) ? head : calloc (1, sizeof (dep_list));
             iter->path = strdup (ent->d_name);
+            iter->inode = ent->d_ino;
             iter->next = NULL;
             if (prev) {
                 prev->next = iter;
@@ -94,7 +128,7 @@ void dl_diff (dep_list **before, dep_list **after)
                 } else {
                     *after = after_iter->next;
                 }
-                free (after_iter);
+                free (after_iter); // TODO: dl_free?
                 break;
             }
             after_prev = after_iter;
@@ -106,7 +140,7 @@ void dl_diff (dep_list **before, dep_list **after)
         if (matched == 0) {
             before_prev = oldptr;
         } else {
-            free (oldptr);
+            free (oldptr); // TODO: dl_free?
         }
     }
 }
