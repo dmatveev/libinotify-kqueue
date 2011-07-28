@@ -6,6 +6,7 @@
 #include <stdio.h>  /* perror */
 #include <string.h> /* memset */
 
+#include "utils.h"
 #include "conversions.h"
 #include "inotify.h"
 #include "worker.h"
@@ -147,11 +148,7 @@ produce_directory_changes (worker         *wrk,
         struct inotify_event *ie = NULL;
         int ie_len = 0;
         // TODO: check allocation
-        ie = create_inotify_event (w->fd,
-                                   flag,
-                                   0,
-                                   list->path,
-                                   &ie_len);
+        ie = create_inotify_event (w->fd, flag, 0, list->path, &ie_len);
 
         write (wrk->io[KQUEUE_FD], ie, ie_len);
         free (ie);
@@ -188,14 +185,14 @@ produce_directory_diff (worker *wrk, watch *w, struct kevent *event)
 
     {   dep_list *now_iter = now;
         while (now_iter != NULL) {
-            char path[512]; // TODO
-            sprintf (path, "%s/%s", w->filename, now_iter->path);
-            watch *neww = worker_start_watching (wrk, path, w->flags, 1); // TODO: magic
+            char *path = path_concat(w->filename, now_iter->path);
+            watch *neww = worker_start_watching (wrk, path, w->flags, WATCH_DEPENDENCY);
             neww->parent = w;
             if (neww == NULL) {
                 perror ("Failed to start watching on a new dependency\n");
             }
             now_iter = now_iter->next;
+            free (path);
         }
     }
 
@@ -245,7 +242,7 @@ produce_notifications (worker *wrk, struct kevent *event)
                  kqueue_to_inotify (event->fflags, w->is_directory),
                  0,
                  // TODO: /foo and /foo/ cases
-                 w->filename + 1 + strlen(p->filename),
+                 w->filename,
                  &ev_len);
             
             // TODO: EINTR

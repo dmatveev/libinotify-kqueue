@@ -22,7 +22,12 @@ typedef struct watch {
     };
 } watch;
 
-int watch_init_user       (watch *w, struct kevent *kv, const char *path, uint32_t flags, int index);
-int watch_init_dependency (watch *w, struct kevent *kv, const char *path, uint32_t flags, int index);
+// TODO: enum for watch type
+int watch_init (watch         *w,
+                int            watch_type,
+                struct kevent *kv,
+                const char    *path,
+                uint32_t       flags,
+                int            index);
 
 #endif // __WATCH_H__

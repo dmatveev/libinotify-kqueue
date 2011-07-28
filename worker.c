@@ -102,11 +102,12 @@ worker_add_dependencies (worker        *wrk,
             }
             snprintf (full_path, full_len, "%s/%s", parent->filename, ent->d_name);
 
-            if (watch_init_dependency (&wrk->sets.watches[index],
-                                       &wrk->sets.events[index],
-                                       full_path, // do we really need a full path?
-                                       parent->flags,
-                                       index)
+            if (watch_init (&wrk->sets.watches[index],
+                            WATCH_DEPENDENCY,
+                            &wrk->sets.events[index],
+                            full_path, // do we really need a full path?
+                            parent->flags,
+                            index)
                 == 0) {
                 ++wrk->sets.length;
                 wrk->sets.watches[index].parent = parent;
@@ -137,36 +138,30 @@ watch*
 worker_start_watching (worker     *wrk,
                        const char *path,
                        uint32_t    flags,
-                       int         dependency)
+                       int         type)
 {
     assert (wrk != NULL);
     assert (path != NULL);
 
-    int i, retval;
+    int i;
 
     printf ("Adding a new watch kevent: %s\n", path);
     worker_sets_extend (&wrk->sets, 1);
     i = wrk->sets.length;
-    retval =
-        (dependency == 0)
-        ? watch_init_user (&wrk->sets.watches[i],
-                           &wrk->sets.events[i],
-                           path,
-                           flags,
-                           i)
-        : watch_init_dependency (&wrk->sets.watches[i],
-                                 &wrk->sets.events[i],
-                                 path,
-                                 flags,
-                                 i);
-    if (retval == -1) {
+    if (watch_init (&wrk->sets.watches[i],
+                    type,
+                    &wrk->sets.events[i],
+                    path,
+                    flags,
+                    i)
+        == -1) {
         perror ("Failed to initialize a user watch\n");
         // TODO: error
         return NULL;
     }
     ++wrk->sets.length;
 
-    if (dependency == 0 && wrk->sets.watches[i].is_directory) {
+    if (type == WATCH_USER && wrk->sets.watches[i].is_directory) {
         printf ("Watched entry is a directory, adding dependencies\n");
         worker_add_dependencies (wrk, &wrk->sets.events[i], &wrk->sets.watches[i]);
     }
@@ -198,7 +193,7 @@ worker_add_or_modify (worker     *wrk,
     }
 
     // add a new entry if path is not found
-    watch *w = worker_start_watching (wrk, path, flags, 0); // TODO: magic number
+    watch *w = worker_start_watching (wrk, path, flags, WATCH_USER); // TODO: magic number
     return (w != NULL) ? w->fd : -1;
 }
 
