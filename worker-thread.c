@@ -6,31 +6,11 @@
 #include <stdio.h>  /* perror */
 #include <string.h> /* memset */
 
+#include "conversions.h"
 #include "inotify.h"
 #include "worker.h"
 #include "worker-sets.h"
 #include "worker-thread.h"
-
-static uint32_t
-kqueue_to_inotify (uint32_t flags, int is_directory)
-{
-    uint32_t result = 0;
-
-    if (flags & (NOTE_ATTRIB | NOTE_LINK))
-        result |= IN_ATTRIB;
-
-    if ((flags & (NOTE_WRITE | NOTE_EXTEND)) // TODO: NOTE_MODIFY?
-        && is_directory == 0)
-        result |= IN_MODIFY;
-
-    if (flags & NOTE_DELETE)
-        result |= IN_DELETE_SELF;
-
-    if (flags & NOTE_RENAME)
-        result |= IN_MOVE_SELF;
-    
-    return result;
-}
 
 void
 process_command (worker *wrk)
