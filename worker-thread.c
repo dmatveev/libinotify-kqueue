@@ -206,6 +206,19 @@ produce_directory_diff (worker *wrk, watch *w, struct kevent *event)
     produce_directory_changes (wrk, w, event, was, IN_DELETE);
     produce_directory_changes (wrk, w, event, now, IN_CREATE);
 
+    {   dep_list *now_iter = now;
+        while (now_iter != NULL) {
+            char path[512]; // TODO
+            sprintf (path, "%s/%s", w->filename, now_iter->path);
+            watch *neww = worker_start_watching (wrk, path, w->flags, 1); // TODO: magic
+            neww->parent = w;
+            if (neww == NULL) {
+                perror ("Failed to start watching on a new dependency\n");
+            }
+            now_iter = now_iter->next;
+        }
+    }
+
     dl_shallow_free (now);
     dl_free (was);
 }
