@@ -9,8 +9,8 @@
 #define WATCH_DEPENDENCY 1
 
 typedef struct watch {
-    int type:1;               /* TODO: enum? */
-    int is_directory:1;       /* a flag, a directory or not */
+    int type;               /* TODO: enum? */
+    int is_directory;       /* a flag, a directory or not */
 
     uint32_t flags;           /* flags in the inotify format */
     char *filename;           /* file name of a watched file */
@@ -29,5 +29,6 @@ int watch_init (watch         *w,
                 const char    *path,
                 uint32_t       flags,
                 int            index);
+
 
 #endif // __WATCH_H__

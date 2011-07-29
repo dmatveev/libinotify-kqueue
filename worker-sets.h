@@ -8,7 +8,7 @@
 
 typedef struct worker_sets {
     struct kevent *events;    /* kevent entries */
-    struct watch *watches;    /* appropriate watches with additional info */
+    struct watch **watches;   /* appropriate watches with additional info */
     size_t length;            /* size of active entries */
     size_t allocated;         /* size of allocated entries */
 } worker_sets;

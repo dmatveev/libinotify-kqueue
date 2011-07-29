@@ -170,9 +170,10 @@ produce_directory_diff (worker *wrk, watch *w, struct kevent *event)
     assert (w->is_directory);
 
     dep_list *was = NULL, *now = NULL;
+
     was = dl_shallow_copy (w->deps);
     dl_shallow_free (w->deps);
-
+    
     w->deps = dl_listing (w->filename);
     now = dl_shallow_copy (w->deps);
 
@@ -206,7 +207,7 @@ produce_notifications (worker *wrk, struct kevent *event)
     assert (wrk != NULL);
     assert (event != NULL);
 
-    watch *w = &wrk->sets.watches[event->udata];
+    watch *w = wrk->sets.watches[event->udata];
 
     if (w->type == WATCH_USER) {
         uint32_t flags = event->fflags;

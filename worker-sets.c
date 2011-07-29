@@ -39,10 +39,11 @@ worker_sets_extend (worker_sets *ws,
     assert (ws != NULL);
 
     if (ws->length + count > ws->allocated) {
-        ws->allocated =+ (count + WS_RESERVED);
-        ws->events = realloc (ws->events, sizeof (struct kevent) * ws->allocated);
-        ws->watches = realloc (ws->watches, sizeof (struct watch) * ws->allocated);
+        ws->allocated += (count + WS_RESERVED);
+
         // TODO: check realloc fails
+        ws->events = realloc (ws->events, sizeof (struct kevent) * ws->allocated);
+        ws->watches = realloc (ws->watches, sizeof (struct watch *) * ws->allocated);
     }
     return 0;
 }
