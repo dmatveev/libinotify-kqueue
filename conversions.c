@@ -47,6 +47,6 @@ kqueue_to_inotify (uint32_t flags, int is_directory)
 
     if (flags & NOTE_RENAME)
         result |= IN_MOVE_SELF;
-    
+
     return result;
 }

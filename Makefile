@@ -8,9 +8,9 @@ OBJS=worker-sets.o \
      controller.o \
      test.o \
      watch.o \
-	 dep-list.o \
-	 conversions.o \
-	 utils.o
+     dep-list.o \
+     conversions.o \
+     utils.o
 
 test: $(OBJS)
 	$(CC) $(OBJS) $(LDFLAGS) -o $(APP)

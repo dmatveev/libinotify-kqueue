@@ -173,7 +173,7 @@ produce_directory_diff (worker *wrk, watch *w, struct kevent *event)
 
     was = dl_shallow_copy (w->deps);
     dl_shallow_free (w->deps);
-    
+
     w->deps = dl_listing (w->filename);
     now = dl_shallow_copy (w->deps);
 

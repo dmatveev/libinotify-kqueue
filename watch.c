@@ -48,7 +48,7 @@ int watch_init (watch         *w,
     w->is_directory = (watch_type == WATCH_USER ? _is_directory (fd) : 0);
     w->filename = strdup (path);
     w->fd = fd;
-    
+
     EV_SET (kv,
             fd,
             EVFILT_VNODE,

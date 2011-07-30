@@ -124,7 +124,7 @@ worker_add_dependencies (worker        *wrk,
             } /* TODO else {... */
             free (full_path);
         }
-                    
+
         closedir(dir);
     } else {
         printf ("Failed to open directory %s\n", parent->filename);
