@@ -21,8 +21,8 @@ int main (int argc, char *argv[])
     int wd;   /* watch descriptor */
 
     struct rlimit rl;
-    rl.rlim_cur = 2048;
-    rl.rlim_max = 4096;
+    rl.rlim_cur = 3072;
+    rl.rlim_max = 8172;
     setrlimit (RLIMIT_NOFILE, &rl);
 
     if (argc < 2) {
