@@ -48,7 +48,16 @@ int main (int argc, char *argv[])
         return 1;
     }
 
+    int ev_count = 0;
+
     while (1) {
+        if (ev_count == 3) {
+            printf("modifying flag to watch only IN_ATTRIB\n");
+            inotify_add_watch (fd, target, IN_ATTRIB);
+        }
+
+        ++ev_count;
+
         get_event(fd, target);
     }
 

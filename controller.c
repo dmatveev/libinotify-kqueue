@@ -55,7 +55,6 @@ inotify_add_watch (int         fd,
     for (i = 0; i < WORKER_SZ; i++) {
         if (workers[i]->io[INOTIFY_FD] == fd) {
             worker *wrk = workers[i];
-
             pthread_mutex_lock (&wrk->mutex);
 
             // TODO: hide these details
@@ -72,6 +71,7 @@ inotify_add_watch (int         fd,
             pthread_barrier_destroy (&wrk->cmd.sync);
 
             // TODO: check error here
+            pthread_mutex_unlock (&wrk->mutex);
             pthread_mutex_unlock (&workers_mutex);
             return wrk->cmd.retval;
         }

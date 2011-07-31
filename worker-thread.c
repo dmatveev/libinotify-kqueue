@@ -191,6 +191,7 @@ produce_directory_diff (worker *wrk, watch *w, struct kevent *event)
             neww->parent = w;
             if (neww == NULL) {
                 perror ("Failed to start watching on a new dependency\n");
+                /* TODO terminate? */
             }
             now_iter = now_iter->next;
             free (path);

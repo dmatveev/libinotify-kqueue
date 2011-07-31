@@ -3,10 +3,13 @@
 
 #include <sys/event.h> /* kevent */
 #include <stdint.h>    /* uint32_t */
+
+// TODO: Worker is a very bad dependency here
 #include "dep-list.h"
 
 #define WATCH_USER       0
 #define WATCH_DEPENDENCY 1
+
 
 typedef struct watch {
     int type;                 /* TODO: enum? */
@@ -15,6 +18,8 @@ typedef struct watch {
     uint32_t flags;           /* flags in the inotify format */
     char *filename;           /* file name of a watched file */
     int fd;                   /* file descriptor of a watched entry */
+
+    struct kevent *event;     /* a pointer to the associated kevent */
 
     union {
         dep_list *deps;       /* dependencies for an user-defined watch */

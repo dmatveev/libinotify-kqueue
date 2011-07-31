@@ -48,6 +48,7 @@ int watch_init (watch         *w,
     w->is_directory = (watch_type == WATCH_USER ? _is_directory (fd) : 0);
     w->filename = strdup (path);
     w->fd = fd;
+    w->event = kv;
 
     EV_SET (kv,
             fd,
@@ -58,5 +59,4 @@ int watch_init (watch         *w,
             index);
 
     return 0;
-
 }

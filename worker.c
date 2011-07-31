@@ -7,10 +7,16 @@
 #include <stdio.h>
 #include <dirent.h>
 
-#include "utils.h"
 #include "inotify.h"
+#include "utils.h"
+#include "conversions.h"
 #include "worker-thread.h"
 #include "worker.h"
+
+
+static void
+worker_update_flags (worker *wrk, watch *w, uint32_t flags);
+
 
 void
 worker_cmd_reset (worker_cmd *cmd)
@@ -184,7 +190,7 @@ worker_add_or_modify (worker     *wrk,
 
         if (wrk->sets.watches[i]->type == WATCH_USER &&
             strcmp (path, evpath) == 0) {
-            // TODO: update flags
+            worker_update_flags (wrk, wrk->sets.watches[i], flags);
             return i;
         }
     }
@@ -220,4 +226,36 @@ worker_remove (worker *wrk,
     /*     } */
     /* } */
     return -1;
+}
+
+
+
+static void
+worker_update_flags (worker *wrk, watch *w, uint32_t flags)
+{
+    assert (w != NULL);
+    assert (w->event != NULL);
+
+    printf ("Updating flags!\n");
+
+    w->flags = flags;
+    w->event->fflags = inotify_to_kqueue (flags, w->is_directory);
+
+    /* Propagate the flag changes also on all dependent watches */
+    if (w->deps) {
+        uint32_t ino_flags = inotify_to_kqueue (flags, 0);
+
+        /* Yes, it is quite stupid to iterate over ALL watches of a worker
+         * while we have a linked list of its dependencies.
+         * TODO improve it
+         */
+        int i;
+        for (i = 1; i < wrk->sets.length; i++) {
+            watch *depw = wrk->sets.watches[i];
+            if (depw->parent == w) {
+                depw->flags = flags;
+                depw->event->fflags = ino_flags;
+            }
+        }
+    }
 }
