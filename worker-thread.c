@@ -2,7 +2,7 @@
 #include <stddef.h> /* NULL */
 #include <assert.h>
 #include <unistd.h> /* write */
-#include <stdlib.h> /* calloc */
+#include <stdlib.h> /* calloc, realloc */
 #include <stdio.h>  /* perror */
 #include <string.h> /* memset */
 
@@ -12,6 +12,22 @@
 #include "worker.h"
 #include "worker-sets.h"
 #include "worker-thread.h"
+
+typedef struct bulk_events {
+    void *memory;
+    int size; // TODO size_t
+} bulk_events;
+
+void
+bulk_write (bulk_events *be, void *mem, int size) // TODO size_t
+{
+    assert (be != NULL);
+    assert (mem != NULL);
+
+    be->memory = realloc (be->memory, be->size + size); // TODO check alloc
+    memcpy (be->memory + be->size, mem, size);
+    be->size += size;
+}
 
 void
 process_command (worker *wrk)
@@ -63,7 +79,8 @@ produce_directory_moves (worker         *wrk,
                          watch          *w,
                          struct kevent  *event,
                          dep_list      **was, // TODO: removed
-                         dep_list      **now) // TODO: added
+                         dep_list      **now, // TODO: added
+                         bulk_events    *be)
 {
     assert (wrk != NULL);
     assert (w != NULL);
@@ -86,14 +103,13 @@ produce_directory_moves (worker         *wrk,
                 int event_len = 0;
                 struct inotify_event *ev;
 
+                // TODO: write directly on bulk events
                 ev = create_inotify_event (w->fd,
                                            IN_MOVED_FROM,
                                            cookie,
                                            was_iter->path,
                                            &event_len);
-                // TODO: EINTR
-                write (wrk->io[KQUEUE_FD], ev, event_len);
-                free (ev);
+                bulk_write (be, ev, event_len);
 
                 ev = create_inotify_event (w->parent->fd,
                                            IN_MOVED_TO,
@@ -101,7 +117,7 @@ produce_directory_moves (worker         *wrk,
                                            now_iter->path,
                                            &event_len);
                 // TODO: EINTR
-                write (wrk->io[KQUEUE_FD], ev, event_len);
+                bulk_write (be, ev, event_len);
                 free (ev);
 
                 if (was_prev) {
@@ -137,7 +153,8 @@ produce_directory_changes (worker         *wrk,
                            watch          *w,
                            struct kevent  *event,
                            dep_list       *list,
-                           uint32_t        flag) // TODO: added
+                           uint32_t        flag,
+                           bulk_events    *be)
 {
     assert (wrk != NULL);
     assert (w != NULL);
@@ -150,7 +167,7 @@ produce_directory_changes (worker         *wrk,
         // TODO: check allocation
         ie = create_inotify_event (w->fd, flag, 0, list->path, &ie_len);
 
-        write (wrk->io[KQUEUE_FD], ie, ie_len);
+        bulk_write (be, ie, ie_len);
         free (ie);
 
         list = list->next;
@@ -179,17 +196,23 @@ produce_directory_diff (worker *wrk, watch *w, struct kevent *event)
 
     dl_diff (&was, &now);
 
-    // TODO: remove deleted entries, start monitoring on new ones
-    produce_directory_moves (wrk, w, event, &was, &now);
-    produce_directory_changes (wrk, w, event, was, IN_DELETE);
-    produce_directory_changes (wrk, w, event, now, IN_CREATE);
+    bulk_events be;
+    memset (&be, 0, sizeof (bulk_events));
+    produce_directory_moves (wrk, w, event, &was, &now, &be);
+    produce_directory_changes (wrk, w, event, was, IN_DELETE, &be);
+    produce_directory_changes (wrk, w, event, now, IN_CREATE, &be);
 
-    {   dep_list *now_iter = w->deps;
+    if (be.memory) {
+        // TODO EINTR
+        write (wrk->io[KQUEUE_FD], be.memory, be.size);
+        free (be.memory);
+    }
+
+    {   dep_list *now_iter = now;
         while (now_iter != NULL) {
             char *path = path_concat(w->filename, now_iter->path);
-            watch *neww = worker_start_watching (wrk, path, w->flags, WATCH_DEPENDENCY);
+            watch *neww = worker_start_watching (wrk, path, now_iter->path, w->flags, WATCH_DEPENDENCY);
             neww->parent = w;
-            now_iter->fd = neww->fd;
             if (neww == NULL) {
                 perror ("Failed to start watching on a new dependency\n");
                 /* TODO terminate? */
@@ -213,13 +236,18 @@ produce_notifications (worker *wrk, struct kevent *event)
 
     watch *w = wrk->sets.watches[event->udata];
 
+    printf ("kevent %d: %s [%s]\n",
+            event->udata,
+            w->filename,
+            (event->fflags & NOTE_DELETE ? "YAY!!!" : "-"));
+
     if (w->type == WATCH_USER) {
         uint32_t flags = event->fflags;
 
         if (w->is_directory
             && (flags & (NOTE_WRITE | NOTE_EXTEND))) {
             produce_directory_diff (wrk, w, event);
-            flags &= ~(NOTE_WRITE|NOTE_EXTEND);
+            flags &= ~(NOTE_WRITE | NOTE_EXTEND);
         }
 
         if (flags) {
@@ -246,7 +274,6 @@ produce_notifications (worker *wrk, struct kevent *event)
                 (p->fd,
                  kqueue_to_inotify (event->fflags, w->is_directory),
                  0,
-                 // TODO: /foo and /foo/ cases
                  w->filename,
                  &ev_len);
             
@@ -276,6 +303,7 @@ worker_thread (void *arg)
             perror ("kevent failed");
             continue;
         }
+
         if (received.ident == wrk->io[KQUEUE_FD]) {
             process_command (wrk);
         } else {

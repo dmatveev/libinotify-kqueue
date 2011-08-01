@@ -52,7 +52,12 @@ worker* worker_create         ();
 void    worker_free           (worker *wrk);
 
 // TODO: enum type for scan_deps
-watch*  worker_start_watching (worker *wrk, const char *path, uint32_t flags, int dependency);
+watch*
+worker_start_watching (worker     *wrk,
+                       const char *path,
+                       const char *entry_name,
+                       uint32_t    flags,
+                       int         type);
 
 int     worker_add_or_modify  (worker *wrk, const char *path, uint32_t flags);
 int     worker_remove         (worker *wrk, int id);

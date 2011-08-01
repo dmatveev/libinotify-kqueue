@@ -107,6 +107,7 @@ worker_add_dependencies (worker        *wrk,
                             WATCH_DEPENDENCY,
                             &wrk->sets.events[index],
                             full_path, // do we really need a full path?
+                            ent->d_name,
                             parent->flags,
                             index)
                 == 0) {
@@ -118,7 +119,6 @@ worker_add_dependencies (worker        *wrk,
                     printf ("Failed to allocate an entry\n");
                 }
 
-                entry->fd = wrk->sets.events[index].ident;
                 entry->path = strdup (ent->d_name);
                 entry->inode = ent->d_ino;
 
@@ -142,6 +142,7 @@ worker_add_dependencies (worker        *wrk,
 watch*
 worker_start_watching (worker     *wrk,
                        const char *path,
+                       const char *entry_name,
                        uint32_t    flags,
                        int         type)
 {
@@ -157,6 +158,7 @@ worker_start_watching (worker     *wrk,
                     type,
                     &wrk->sets.events[i],
                     path,
+                    entry_name,
                     flags,
                     i)
         == -1) {
@@ -165,6 +167,8 @@ worker_start_watching (worker     *wrk,
         return NULL;
     }
     ++wrk->sets.length;
+
+    printf ("Starting watching on %s, index %d\n", path, i);
 
     if (type == WATCH_USER && wrk->sets.watches[i]->is_directory) {
         worker_add_dependencies (wrk, &wrk->sets.events[i], wrk->sets.watches[i]);
@@ -197,7 +201,7 @@ worker_add_or_modify (worker     *wrk,
     }
 
     // add a new entry if path is not found
-    watch *w = worker_start_watching (wrk, path, flags, WATCH_USER); // TODO: magic number
+    watch *w = worker_start_watching (wrk, path, NULL, flags, WATCH_USER); // TODO: magic number
     return (w != NULL) ? w->fd : -1;
 }
 
@@ -278,12 +282,14 @@ worker_remove_many (worker *wrk, dep_list *items)
     for (i = 1, j = 1; i < wrk->sets.length; i++) {
         dep_list *iter = to_head;
         dep_list *prev = NULL;
-        while (iter != NULL && iter->fd != wrk->sets.watches[i]->fd) {
+        watch *w = wrk->sets.watches[i];
+
+        while (iter != NULL && strcmp(iter->path, w->filename) != 0) {
             prev = iter;
             iter = iter->next;
         }
 
-        if (iter != NULL && iter->fd == wrk->sets.watches[i]->fd) {
+        if (iter != NULL) {
 
             /* Really matched */
             /* At first, remove this entry from a list of files to remove */
@@ -294,19 +300,21 @@ worker_remove_many (worker *wrk, dep_list *items)
             }
 
             /* Then, remove the watch itself */
-            watch_free (wrk->sets.watches[i]);
+            watch_free (w);
         } else {
 
             /* Keep this item */
             if (i != j) {
                 wrk->sets.events[j] = wrk->sets.events[i];
                 wrk->sets.events[j].udata = j;
-                wrk->sets.watches[j] = wrk->sets.watches[i];
+                wrk->sets.watches[j] = w;
                 wrk->sets.watches[j]->event = &wrk->sets.events[j];
-                ++j;
             }
+            ++j;
         }
     }
+
+    wrk->sets.length -= (i - j);
     
     dl_shallow_free (items);
 }

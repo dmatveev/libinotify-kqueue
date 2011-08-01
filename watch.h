@@ -16,7 +16,8 @@ typedef struct watch {
     int is_directory;         /* a flag, a directory or not */
 
     uint32_t flags;           /* flags in the inotify format */
-    char *filename;           /* file name of a watched file */
+    char *filename;           /* file name of a watched file
+                               * NB: an entry file name for dependencies! */
     int fd;                   /* file descriptor of a watched entry */
 
     struct kevent *event;     /* a pointer to the associated kevent */
@@ -32,6 +33,7 @@ int watch_init (watch         *w,
                 int            watch_type,
                 struct kevent *kv,
                 const char    *path,
+                const char    *entry_name,
                 uint32_t       flags,
                 int            index);
 

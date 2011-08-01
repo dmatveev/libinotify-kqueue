@@ -1,11 +1,13 @@
 #include <fcntl.h>  /* open */
+#include <unistd.h> /* close */
 #include <string.h> /* strdup */
 #include <stdio.h>  /* perror */
+#include <stdlib.h> /* free */
 #include <assert.h>
 
 #include "conversions.h"
 #include "watch.h"
-
+#include "inotify.h"
 
 static int
 _is_directory (int fd)
@@ -23,10 +25,22 @@ _is_directory (int fd)
     return (st.st_mode & S_IFDIR) == S_IFDIR;
 }
 
+
+
+// TODO: reuse inotify_to_kqueue?
+#define DEPS_EXCLUDED_FLAGS \
+    ( IN_MOVED_FROM \
+    | IN_MOVED_TO \
+    | IN_MOVE_SELF \
+    | IN_DELETE_SELF \
+    )
+
+
 int watch_init (watch         *w,
                 int            watch_type,
                 struct kevent *kv,
                 const char    *path,
+                const char    *entry_name,
                 uint32_t       flags,
                 int            index)
 {
@@ -44,10 +58,14 @@ int watch_init (watch         *w,
         return -1;
     }
 
+    if (watch_type == WATCH_DEPENDENCY) {
+        flags &= ~DEPS_EXCLUDED_FLAGS;
+    }
+
     w->type = watch_type;
     w->flags = flags;
     w->is_directory = (watch_type == WATCH_USER ? _is_directory (fd) : 0);
-    w->filename = strdup (path);
+    w->filename = strdup (watch_type == WATCH_USER ? path : entry_name);
     w->fd = fd;
     w->event = kv;
 
