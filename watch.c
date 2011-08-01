@@ -37,6 +37,7 @@ int watch_init (watch         *w,
     memset (w, 0, sizeof (watch));
     memset (kv, 0, sizeof (struct kevent));
 
+    /* TODO: EINTR? */
     int fd = open (path, O_RDONLY);
     if (fd == -1) {
         // TODO: error
@@ -59,4 +60,13 @@ int watch_init (watch         *w,
             index);
 
     return 0;
+}
+
+void
+watch_free (watch *w)
+{
+    assert (w != NULL);
+    close (w->fd); /* TODO: EINTR? */
+    free (w->filename);
+    free (w);
 }

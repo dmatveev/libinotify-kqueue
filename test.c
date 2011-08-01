@@ -51,10 +51,10 @@ int main (int argc, char *argv[])
     int ev_count = 0;
 
     while (1) {
-        if (ev_count == 3) {
-            printf("modifying flag to watch only IN_ATTRIB\n");
-            inotify_add_watch (fd, target, IN_ATTRIB);
-        }
+        /* if (ev_count == 3) { */
+        /*     printf("modifying flag to watch only IN_ATTRIB\n"); */
+        /*     inotify_add_watch (fd, target, IN_ATTRIB); */
+        /* } */
 
         ++ev_count;
 
@@ -134,15 +134,3 @@ void handle_error (int error)
 }  /* handle_error */
 
 /* ----------------------------------------------------------------- */
-
-
-
-
-
-/* #include "inotify.h" */
-
-/* int main (int argc, char *argv[]) { */
-/*     int fd = inotify_init(); */
-/*     (void) fd; */
-/*     return 0; */
-/* } */

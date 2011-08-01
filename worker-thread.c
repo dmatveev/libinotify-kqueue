@@ -184,11 +184,12 @@ produce_directory_diff (worker *wrk, watch *w, struct kevent *event)
     produce_directory_changes (wrk, w, event, was, IN_DELETE);
     produce_directory_changes (wrk, w, event, now, IN_CREATE);
 
-    {   dep_list *now_iter = now;
+    {   dep_list *now_iter = w->deps;
         while (now_iter != NULL) {
             char *path = path_concat(w->filename, now_iter->path);
             watch *neww = worker_start_watching (wrk, path, w->flags, WATCH_DEPENDENCY);
             neww->parent = w;
+            now_iter->fd = neww->fd;
             if (neww == NULL) {
                 perror ("Failed to start watching on a new dependency\n");
                 /* TODO terminate? */
@@ -197,6 +198,8 @@ produce_directory_diff (worker *wrk, watch *w, struct kevent *event)
             free (path);
         }
     }
+
+    worker_remove_many (wrk, was);
 
     dl_shallow_free (now);
     dl_free (was);

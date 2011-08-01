@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h> /* open() */
+#include <unistd.h> /* close() */
 #include <assert.h>
 #include <stdio.h>
 #include <dirent.h>
@@ -117,7 +118,7 @@ worker_add_dependencies (worker        *wrk,
                     printf ("Failed to allocate an entry\n");
                 }
 
-                /* entry->fd = wrk->sets.events[index].ident; */
+                entry->fd = wrk->sets.events[index].ident;
                 entry->path = strdup (ent->d_name);
                 entry->inode = ent->d_ino;
 
@@ -258,4 +259,54 @@ worker_update_flags (worker *wrk, watch *w, uint32_t flags)
             }
         }
     }
+}
+
+
+void
+worker_remove_many (worker *wrk, dep_list *items)
+{
+    assert (wrk != NULL);
+
+    if (items == NULL) {
+        return;
+    }
+
+    dep_list *to_remove = dl_shallow_copy (items);
+    dep_list *to_head = to_remove;
+    int i, j;
+
+    for (i = 1, j = 1; i < wrk->sets.length; i++) {
+        dep_list *iter = to_head;
+        dep_list *prev = NULL;
+        while (iter != NULL && iter->fd != wrk->sets.watches[i]->fd) {
+            prev = iter;
+            iter = iter->next;
+        }
+
+        if (iter != NULL && iter->fd == wrk->sets.watches[i]->fd) {
+
+            /* Really matched */
+            /* At first, remove this entry from a list of files to remove */
+            if (prev) {
+                prev->next = iter->next;
+            } else {
+                to_head = iter->next;
+            }
+
+            /* Then, remove the watch itself */
+            watch_free (wrk->sets.watches[i]);
+        } else {
+
+            /* Keep this item */
+            if (i != j) {
+                wrk->sets.events[j] = wrk->sets.events[i];
+                wrk->sets.events[j].udata = j;
+                wrk->sets.watches[j] = wrk->sets.watches[i];
+                wrk->sets.watches[j]->event = &wrk->sets.events[j];
+                ++j;
+            }
+        }
+    }
+    
+    dl_shallow_free (items);
 }

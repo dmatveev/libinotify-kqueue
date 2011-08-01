@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include "worker-thread.h"
 #include "worker-sets.h"
+#include "dep-list.h"
 
 #define INOTIFY_FD 0
 #define KQUEUE_FD  1
@@ -56,5 +57,6 @@ watch*  worker_start_watching (worker *wrk, const char *path, uint32_t flags, in
 int     worker_add_or_modify  (worker *wrk, const char *path, uint32_t flags);
 int     worker_remove         (worker *wrk, int id);
 
+void    worker_remove_many    (worker *wrk, dep_list* items);
 
 #endif /* __WORKER_H__ */

@@ -28,7 +28,7 @@ dl_shallow_copy (dep_list *dl)
     dep_list *it = dl;
 
     while (it != NULL) {
-        /* cp->fd = it->fd; */
+        cp->fd = it->fd;
         cp->path = it->path;
         cp->inode = it->inode;
         if (it->next) {
