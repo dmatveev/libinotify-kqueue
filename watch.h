@@ -3,6 +3,7 @@
 
 #include <sys/event.h> /* kevent */
 #include <stdint.h>    /* uint32_t */
+#include <dirent.h>    /* ino_t */
 
 // TODO: Worker is a very bad dependency here
 #include "dep-list.h"
@@ -19,6 +20,7 @@ typedef struct watch {
     char *filename;           /* file name of a watched file
                                * NB: an entry file name for dependencies! */
     int fd;                   /* file descriptor of a watched entry */
+    ino_t inode;              /* inode number for the watched entry */
 
     struct kevent *event;     /* a pointer to the associated kevent */
 

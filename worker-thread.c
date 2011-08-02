@@ -74,15 +74,13 @@ create_inotify_event (int wd, uint32_t mask, uint32_t cookie, const char *name, 
 }
 
 // TODO: drop unnecessary arguments
-void
-produce_directory_moves (worker         *wrk,
-                         watch          *w,
+int
+produce_directory_moves (watch          *w,
                          struct kevent  *event,
                          dep_list      **was, // TODO: removed
                          dep_list      **now, // TODO: added
                          bulk_events    *be)
 {
-    assert (wrk != NULL);
     assert (w != NULL);
     assert (event != NULL);
     assert (was != NULL);
@@ -90,6 +88,8 @@ produce_directory_moves (worker         *wrk,
 
     dep_list *was_iter = *was;
     dep_list *was_prev = NULL;
+
+    int moves = 0;
 
     while (was_iter != NULL) {
         dep_list *now_iter = *now;
@@ -104,21 +104,19 @@ produce_directory_moves (worker         *wrk,
                 struct inotify_event *ev;
 
                 // TODO: write directly on bulk events
-                ev = create_inotify_event (w->fd,
-                                           IN_MOVED_FROM,
-                                           cookie,
+                ev = create_inotify_event (w->parent->fd, IN_MOVED_FROM, cookie,
                                            was_iter->path,
                                            &event_len);
                 bulk_write (be, ev, event_len);
+                free (ev);
 
-                ev = create_inotify_event (w->parent->fd,
-                                           IN_MOVED_TO,
-                                           cookie,
+                ev = create_inotify_event (w->parent->fd, IN_MOVED_TO, cookie,
                                            now_iter->path,
                                            &event_len);
-                // TODO: EINTR
                 bulk_write (be, ev, event_len);
                 free (ev);
+
+                ++moves;
 
                 if (was_prev) {
                     was_prev->next = was_iter->next;
@@ -144,6 +142,8 @@ produce_directory_moves (worker         *wrk,
             free (oldptr); // TODO: dl_free?
         }
     }
+
+    return (moves > 0);
 }
 
 
@@ -198,7 +198,9 @@ produce_directory_diff (worker *wrk, watch *w, struct kevent *event)
 
     bulk_events be;
     memset (&be, 0, sizeof (bulk_events));
-    produce_directory_moves (wrk, w, event, &was, &now, &be);
+    if (produce_directory_moves (w, event, &was, &now, &be)) {
+        worker_update_paths (wrk, w);
+    }
     produce_directory_changes (wrk, w, event, was, IN_DELETE, &be);
     produce_directory_changes (wrk, w, event, now, IN_CREATE, &be);
 
@@ -210,13 +212,13 @@ produce_directory_diff (worker *wrk, watch *w, struct kevent *event)
 
     {   dep_list *now_iter = now;
         while (now_iter != NULL) {
-            char *path = path_concat(w->filename, now_iter->path);
+            char *path = path_concat (w->filename, now_iter->path);
             watch *neww = worker_start_watching (wrk, path, now_iter->path, w->flags, WATCH_DEPENDENCY);
-            neww->parent = w;
             if (neww == NULL) {
                 perror ("Failed to start watching on a new dependency\n");
                 /* TODO terminate? */
             }
+            neww->parent = w;
             now_iter = now_iter->next;
             free (path);
         }

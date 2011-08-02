@@ -62,6 +62,7 @@ worker_start_watching (worker     *wrk,
 int     worker_add_or_modify  (worker *wrk, const char *path, uint32_t flags);
 int     worker_remove         (worker *wrk, int id);
 
+void    worker_update_paths   (worker *wrk, watch *parent);
 void    worker_remove_many    (worker *wrk, dep_list* items);
 
 #endif /* __WORKER_H__ */

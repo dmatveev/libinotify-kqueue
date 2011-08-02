@@ -9,20 +9,23 @@
 #include "watch.h"
 #include "inotify.h"
 
-static int
-_is_directory (int fd)
+static void
+_file_information (int fd, int *is_dir, ino_t *inode)
 {
     assert (fd != -1);
+    assert (is_dir != NULL);
+    assert (inode != NULL);
 
     struct stat st;
     memset (&st, 0, sizeof (struct stat));
 
     if (fstat (fd, &st) == -1) {
         perror ("fstat failed, assuming it is just a file");
-        return 0;
+        return;
     }
 
-    return (st.st_mode & S_IFDIR) == S_IFDIR;
+    *is_dir = ((st.st_mode & S_IFDIR) == S_IFDIR) ? 1 : 0;
+    *inode = st.st_ino;
 }
 
 
@@ -64,10 +67,13 @@ int watch_init (watch         *w,
 
     w->type = watch_type;
     w->flags = flags;
-    w->is_directory = (watch_type == WATCH_USER ? _is_directory (fd) : 0);
     w->filename = strdup (watch_type == WATCH_USER ? path : entry_name);
     w->fd = fd;
     w->event = kv;
+
+    int is_dir = 0;
+    _file_information (fd, &is_dir, &w->inode);
+    w->is_directory = (watch_type == WATCH_USER ? is_dir : 0);
 
     EV_SET (kv,
             fd,

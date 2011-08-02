@@ -80,61 +80,31 @@ worker_free (worker *wrk)
 static int
 worker_add_dependencies (worker        *wrk,
                          struct kevent *event,
-                         watch         *parent) // <-- can change on grow!
+                         watch         *parent)
 {
     assert (wrk != NULL);
     assert (parent != NULL);
     assert (parent->type == WATCH_USER);
     assert (event != NULL);
 
-    // start watching also on its contents
-    DIR *dir = opendir (parent->filename);
-    if (dir != NULL) {
-        struct dirent *ent;
-        dep_list *iter = parent->deps;
+    parent->deps = dl_listing (parent->filename);
 
-        while ((ent = readdir (dir)) != NULL) {
-            if (!strcmp (ent->d_name, ".") || !strcmp (ent->d_name, "..")) {
-                continue;
+    {   dep_list *iter = parent->deps;
+        while (iter != NULL) {
+            char *path = path_concat (parent->filename, iter->path);
+            watch *neww = worker_start_watching (wrk,
+                                                 path,
+                                                 iter->path,
+                                                 parent->flags,
+                                                 WATCH_DEPENDENCY);
+            if (neww == NULL) {
+                perror ("Failed to start watching a dependency\n");
+                /* TODO ? */
             }
-
-            int index = wrk->sets.length;
-            worker_sets_extend (&wrk->sets, 1);
-
-            char *full_path = path_concat(parent->filename, ent->d_name);
-            wrk->sets.watches[index] = calloc (1, sizeof (struct watch));
-            if (watch_init (wrk->sets.watches[index],
-                            WATCH_DEPENDENCY,
-                            &wrk->sets.events[index],
-                            full_path, // do we really need a full path?
-                            ent->d_name,
-                            parent->flags,
-                            index)
-                == 0) {
-                ++wrk->sets.length;
-                wrk->sets.watches[index]->parent = parent;
-
-                dep_list *entry = calloc (1, sizeof (dep_list));
-                if (entry == 0) {
-                    printf ("Failed to allocate an entry\n");
-                }
-
-                entry->path = strdup (ent->d_name);
-                entry->inode = ent->d_ino;
-
-                if (iter) {
-                    iter->next = entry;
-                } else {
-                    parent->deps = entry;
-                }
-                iter = entry;
-            } /* TODO else {... */
-            free (full_path);
+            neww->parent = parent;
+            iter = iter->next;
+            free (path);
         }
-
-        closedir(dir);
-    } else {
-        printf ("Failed to open directory %s\n", parent->filename);
     }
     return 0;
 }
@@ -284,7 +254,9 @@ worker_remove_many (worker *wrk, dep_list *items)
         dep_list *prev = NULL;
         watch *w = wrk->sets.watches[i];
 
-        while (iter != NULL && strcmp(iter->path, w->filename) != 0) {
+        // TODO: we can have two directories with similar contents,
+        // so the items should be identified by a file descriptor.
+        while (iter != NULL && strcmp (iter->path, w->filename) != 0) {
             prev = iter;
             iter = iter->next;
         }
@@ -315,6 +287,56 @@ worker_remove_many (worker *wrk, dep_list *items)
     }
 
     wrk->sets.length -= (i - j);
+
+    // TODO: who will free items?
+    // TODO: possible memory corruption here?
+    dl_shallow_free (to_remove);
+}
+
+
+void
+worker_update_paths (worker *wrk, watch *parent)
+{
+    assert (wrk != NULL);
+    assert (parent != NULL);
+
+    if (parent->deps == NULL) {
+        return;
+    }
+
+    dep_list *to_update = dl_shallow_copy (parent->deps);
+    dep_list *to_head = to_update;
+    int i, j;
+
+    for (i = 1, j = 1; i < wrk->sets.length; i++) {
+        dep_list *iter = to_head;
+        dep_list *prev = NULL;
+        watch *w = wrk->sets.watches[i];
+
+        if (to_head == NULL) {
+            break;
+        }
+
+        if (w->parent == parent) {
+            while (iter != NULL && iter->inode != w->inode) {
+                prev = iter;
+                iter = iter->next;
+            }
+
+            if (iter != NULL) {
+                if (prev) {
+                    prev->next = iter->next;
+                } else {
+                    to_head = iter->next;
+                }
+            }
+
+            free (w->filename);
+            // TODO: memleak?
+            w->filename = strdup (iter->path);
+        }
+    }
     
-    dl_shallow_free (items);
+    // TODO: possible memory corruption here?
+    dl_shallow_free (to_update);
 }
