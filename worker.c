@@ -237,9 +237,10 @@ worker_update_flags (worker *wrk, watch *w, uint32_t flags)
 
 
 void
-worker_remove_many (worker *wrk, dep_list *items)
+worker_remove_many (worker *wrk, watch *parent, dep_list *items)
 {
     assert (wrk != NULL);
+    assert (parent != NULL);
 
     if (items == NULL) {
         return;
@@ -254,35 +255,38 @@ worker_remove_many (worker *wrk, dep_list *items)
         dep_list *prev = NULL;
         watch *w = wrk->sets.watches[i];
 
-        // TODO: we can have two directories with similar contents,
-        // so the items should be identified by a file descriptor.
-        while (iter != NULL && strcmp (iter->path, w->filename) != 0) {
-            prev = iter;
-            iter = iter->next;
-        }
+        if (w->parent == parent) {
 
-        if (iter != NULL) {
+            // TODO: we can have two directories with similar contents,
+            // so the items should be identified by a file descriptor.
+            while (iter != NULL && strcmp (iter->path, w->filename) != 0) {
+                prev = iter;
+                iter = iter->next;
+            }
 
-            /* Really matched */
-            /* At first, remove this entry from a list of files to remove */
-            if (prev) {
-                prev->next = iter->next;
+            if (iter != NULL) {
+
+                /* Really matched */
+                /* At first, remove this entry from a list of files to remove */
+                if (prev) {
+                    prev->next = iter->next;
+                } else {
+                    to_head = iter->next;
+                }
+
+                /* Then, remove the watch itself */
+                watch_free (w);
             } else {
-                to_head = iter->next;
-            }
 
-            /* Then, remove the watch itself */
-            watch_free (w);
-        } else {
-
-            /* Keep this item */
-            if (i != j) {
-                wrk->sets.events[j] = wrk->sets.events[i];
-                wrk->sets.events[j].udata = j;
-                wrk->sets.watches[j] = w;
-                wrk->sets.watches[j]->event = &wrk->sets.events[j];
+                /* Keep this item */
+                if (i != j) {
+                    wrk->sets.events[j] = wrk->sets.events[i];
+                    wrk->sets.events[j].udata = j;
+                    wrk->sets.watches[j] = w;
+                    wrk->sets.watches[j]->event = &wrk->sets.events[j];
+                }
+                ++j;
             }
-            ++j;
         }
     }
 

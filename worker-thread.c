@@ -165,6 +165,7 @@ produce_directory_changes (worker         *wrk,
         struct inotify_event *ie = NULL;
         int ie_len = 0;
         // TODO: check allocation
+
         ie = create_inotify_event (w->fd, flag, 0, list->path, &ie_len);
 
         bulk_write (be, ie, ie_len);
@@ -224,7 +225,7 @@ produce_directory_diff (worker *wrk, watch *w, struct kevent *event)
         }
     }
 
-    worker_remove_many (wrk, was);
+    worker_remove_many (wrk, w, was);
 
     dl_shallow_free (now);
     dl_free (was);
