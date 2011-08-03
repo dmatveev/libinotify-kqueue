@@ -180,27 +180,21 @@ int
 worker_remove (worker *wrk,
                int     id)
 {
-    /* assert (wrk != NULL); */
-    /* assert (id != -1); */
+    assert (wrk != NULL);
+    assert (id != -1);
 
-    /* int i; */
-    /* int last = wrk->sets.length - 1; */
-    /* for (i = 0; i < wrk->sets.length; i++) { */
-    /*     if (wrk->sets.events[i].ident == id) { */
-    /*         free (wrk->sets.filenames[i]); */
-
-    /*         if (i != last) { */
-    /*             wrk->sets.events[i] = wrk->sets.events[last]; */
-    /*             wrk->sets.filenames[i] = wrk->sets.filenames[last]; */
-    /*         } */
-    /*         wrk->sets.filenames[last] = NULL; */
-    /*         --wrk->sets.length; */
-
-    /*         // TODO: reduce the allocated memory size here */
-    /*         return 0; */
-    /*     } */
-    /* } */
-    return -1;
+    int i;
+    for (i = 1; i < wrk->sets.length; i++) {
+        if (wrk->sets.events[i].ident == id) {
+            worker_remove_many (wrk,
+                                wrk->sets.watches[i],
+                                wrk->sets.watches[i]->deps,
+                                1);
+            break;
+        }
+    }
+    /* Assume always success */
+    return 0;
 }
 
 
@@ -237,14 +231,10 @@ worker_update_flags (worker *wrk, watch *w, uint32_t flags)
 
 
 void
-worker_remove_many (worker *wrk, watch *parent, dep_list *items)
+worker_remove_many (worker *wrk, watch *parent, dep_list *items, int remove_self)
 {
     assert (wrk != NULL);
     assert (parent != NULL);
-
-    if (items == NULL) {
-        return;
-    }
 
     dep_list *to_remove = dl_shallow_copy (items);
     dep_list *to_head = to_remove;
@@ -255,6 +245,12 @@ worker_remove_many (worker *wrk, watch *parent, dep_list *items)
         dep_list *prev = NULL;
         watch *w = wrk->sets.watches[i];
 
+        if (remove_self && w == parent) {
+            /* Remove the parent watch itself. The watch will be freed later,
+             * now just remove it from the array */
+            continue;
+        }
+
         if (w->parent == parent) {
             while (iter != NULL && strcmp (iter->path, w->filename) != 0) {
                 prev = iter;
@@ -262,7 +258,6 @@ worker_remove_many (worker *wrk, watch *parent, dep_list *items)
             }
 
             if (iter != NULL) {
-                /* Really matched */
                 /* At first, remove this entry from a list of files to remove */
                 if (prev) {
                     prev->next = iter->next;
@@ -272,7 +267,6 @@ worker_remove_many (worker *wrk, watch *parent, dep_list *items)
 
                 /* Then, remove the watch itself */
                 watch_free (w);
-
                 continue;
             }
         }
@@ -285,6 +279,10 @@ worker_remove_many (worker *wrk, watch *parent, dep_list *items)
             wrk->sets.watches[j]->event = &wrk->sets.events[j];
         }
         ++j;
+    }
+
+    if (remove_self) {
+        watch_free (parent);
     }
 
     wrk->sets.length -= (i - j);

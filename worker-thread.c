@@ -225,7 +225,7 @@ produce_directory_diff (worker *wrk, watch *w, struct kevent *event)
         }
     }
 
-    worker_remove_many (wrk, w, was);
+    worker_remove_many (wrk, w, was, 0);
 
     dl_shallow_free (now);
     dl_free (was);
