@@ -78,7 +78,6 @@ inotify_add_watch (int         fd,
         }
     }
 
-    // TODO: unlock workers earlier?
     pthread_mutex_unlock (&workers_mutex);
     return -1;
 }
