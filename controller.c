@@ -7,6 +7,7 @@
 #include <stdio.h> /* printf */
 
 #include "worker.h"
+#include "utils.h"
 #include "inotify.h"
 
 
@@ -58,7 +59,7 @@ inotify_add_watch (int         fd,
             pthread_mutex_lock (&wrk->mutex);
 
             worker_cmd_add (&wrk->cmd, name, mask);
-            write (wrk->io[INOTIFY_FD], "*", 1); // TODO: EINTR
+            safe_write (wrk->io[INOTIFY_FD], "*", 1);
             worker_cmd_wait (&wrk->cmd);
 
             // TODO: check error here
@@ -89,7 +90,7 @@ inotify_rm_watch (int fd,
             pthread_mutex_lock (&wrk->mutex);
 
             worker_cmd_remove (&wrk->cmd, wd);
-            write (wrk->io[INOTIFY_FD], "*", 1); // TODO: EINTR
+            safe_write (wrk->io[INOTIFY_FD], "*", 1);
             worker_cmd_wait (&wrk->cmd);
 
             // TODO: check error here

@@ -19,7 +19,7 @@ typedef struct bulk_events {
 } bulk_events;
 
 void
-bulk_write (bulk_events *be, void *mem, int size) // TODO size_t
+bulk_write (bulk_events *be, void *mem, size_t size)
 {
     assert (be != NULL);
     assert (mem != NULL);
@@ -34,9 +34,9 @@ process_command (worker *wrk)
 {
     assert (wrk != NULL);
 
-    // read a byte
+    /* read a byte */
     char unused;
-    read (wrk->io[KQUEUE_FD], &unused, 1);
+    safe_read (wrk->io[KQUEUE_FD], &unused, 1);
 
     if (wrk->cmd.type == WCMD_ADD) {
         wrk->cmd.retval = worker_add_or_modify (wrk,
@@ -197,8 +197,7 @@ produce_directory_diff (worker *wrk, watch *w, struct kevent *event)
     produce_directory_changes (w, now, IN_CREATE, &be);
 
     if (be.memory) {
-        // TODO EINTR
-        write (wrk->io[KQUEUE_FD], be.memory, be.size);
+        safe_write (wrk->io[KQUEUE_FD], be.memory, be.size);
         free (be.memory);
     }
 
@@ -253,8 +252,7 @@ produce_notifications (worker *wrk, struct kevent *event)
                                        NULL,
                                        &ev_len);
 
-            // TODO: EINTR
-            write (wrk->io[KQUEUE_FD], ie, ev_len);
+            safe_write (wrk->io[KQUEUE_FD], ie, ev_len);
             free (ie);
         }
     } else {
@@ -271,8 +269,7 @@ produce_notifications (worker *wrk, struct kevent *event)
                  w->filename,
                  &ev_len);
             
-            // TODO: EINTR
-            write (wrk->io[KQUEUE_FD], ie, ev_len);
+            safe_write (wrk->io[KQUEUE_FD], ie, ev_len);
             free (ie);
         }
     }
