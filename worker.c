@@ -18,8 +18,36 @@
 static void
 worker_update_flags (worker *wrk, watch *w, uint32_t flags);
 
+static void
+worker_cmd_reset (worker_cmd *cmd);
 
 void
+worker_cmd_add (worker_cmd *cmd, const char *filename, uint32_t mask)
+{
+    assert (cmd != NULL);
+    worker_cmd_reset (cmd);
+
+    cmd->type = WCMD_ADD;
+    cmd->add.filename = strdup (filename);
+    cmd->add.mask = mask;
+
+    pthread_barrier_init (&cmd->sync, NULL, 2);
+}
+
+void
+worker_cmd_remove (worker_cmd *cmd, int watch_id)
+{
+    assert (cmd != NULL);
+    worker_cmd_reset (cmd);
+
+    cmd->type = WCMD_REMOVE;
+    cmd->rm_id = watch_id;
+
+    pthread_barrier_init (&cmd->sync, NULL, 2);
+}
+
+
+static void
 worker_cmd_reset (worker_cmd *cmd)
 {
     assert (cmd != NULL);
@@ -27,6 +55,16 @@ worker_cmd_reset (worker_cmd *cmd)
     free (cmd->add.filename);
     memset (cmd, 0, sizeof (worker_cmd));
 }
+
+void
+worker_cmd_wait (worker_cmd *cmd)
+{
+    assert (cmd != NULL);
+    pthread_barrier_wait (&cmd->sync);
+    pthread_barrier_destroy (&cmd->sync);
+}
+
+
 
 worker*
 worker_create ()

@@ -11,14 +11,14 @@
 #define INOTIFY_FD 0
 #define KQUEUE_FD  1
 
+typedef enum {
+    WCMD_NONE = 0,   /* uninitialized state */
+    WCMD_ADD,        /* add or modify a watch */
+    WCMD_REMOVE,     /* remove a watch */
+} worker_cmd_type_t;
 
 typedef struct worker_cmd {
-    enum {
-        WCMD_NONE = 0,   /* uninitialized state */
-        WCMD_ADD,
-        WCMD_REMOVE,
-    } type;
-
+    worker_cmd_type_t type;
     int retval;
 
     union {
@@ -34,7 +34,9 @@ typedef struct worker_cmd {
 } worker_cmd;
 
 
-void worker_cmd_reset (worker_cmd *cmd);
+void worker_cmd_add    (worker_cmd *cmd, const char *filename, uint32_t mask);
+void worker_cmd_remove (worker_cmd *cmd, int watch_id);
+void worker_cmd_wait   (worker_cmd *cmd);
 
 
 typedef struct {
