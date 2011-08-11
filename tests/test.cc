@@ -573,8 +573,8 @@ void journal::channel::summarize (int &passed, int &failed) const
 }
 
 journal::journal ()
-: channels_mutex (PTHREAD_MUTEX_INITIALIZER)
 {
+    pthread_mutex_init (&channels_mutex, NULL);
 }
 
 journal::channel& journal::allocate_channel (const std::string &name)
