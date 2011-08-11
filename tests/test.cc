@@ -5,6 +5,7 @@
 #include <ctime>
 #include <string>
 #include <set>
+#include <list>
 #include <algorithm> // find_if
 #include <pthread.h>
 #include <poll.h>
@@ -33,14 +34,18 @@ static unsigned int current_thread ()
 #endif
 }
 
-#define LOG(X)                             \
-    do {                                   \
-        pthread_mutex_lock (&log_mutex);   \
-        std::cout                          \
-            << current_thread() << "    "  \
-            << X                           \
-            << std::endl;                  \
-        pthread_mutex_unlock (&log_mutex); \
+static volatile bool LOGGING_ENABLED = false;
+
+#define LOG(X)                                 \
+    do {                                       \
+        if (LOGGING_ENABLED) {                 \
+            pthread_mutex_lock (&log_mutex);   \
+            std::cout                          \
+                << current_thread() << "    "  \
+                << X                           \
+                << std::endl;                  \
+            pthread_mutex_unlock (&log_mutex); \
+        }                                      \
     } while (0)
 
 struct event {
@@ -260,7 +265,7 @@ private:
     // Again, not a union
     struct {
         events _left_unreg;
-        uint32_t _watch_id;
+        int _watch_id;
     } variants;
 
     variant current;
@@ -272,7 +277,7 @@ public:
 
     variant current_variant () const;
     events left_unregistered () const;
-    uint32_t added_watch_id () const;
+    int added_watch_id () const;
 };
 
 response::response ()
@@ -307,7 +312,7 @@ events response::left_unregistered () const
     return variants._left_unreg;
 }
 
-uint32_t response::added_watch_id () const
+int response::added_watch_id () const
 {
     assert (current == WATCH_ID);
     return variants._watch_id;
@@ -476,17 +481,246 @@ void consumer::run ()
     }
 }
 
-int main (int argc, char *argv[]) {
-    producer prod;
+class test;
+
+class journal {
+public:
+    struct entry {
+        std::string name;
+        enum status_e {
+            PASSED,
+            FAILED
+        } status;
+
+        explicit entry (const std::string &name_ = "", status_e status_ = PASSED);
+    };
+
+    class channel {
+        typedef std::list<entry> entry_list;
+        entry_list results;
+        std::string name;
+
+    public:
+        channel (const std::string &name_);
+
+        void pass (const std::string &test_name);
+        void fail (const std::string &test_name);
+
+        void summarize (int &passed, int &failed) const;
+    };
+
+    journal ();
+    channel& allocate_channel (const std::string &name);
+    void summarize () const;
+
+private:
+    // It would be better to use shared pointers here, but I dont want to
+    // introduce a dependency like Boost. Raw references are harmful anyway
+    typedef std::list<channel> channel_list;
+    mutable pthread_mutex_t channels_mutex;
+    channel_list channels;
+};
+
+journal::entry::entry (const std::string &name_, status_e status_)
+: name (name_)
+, status (status_)
+{
+}
+
+journal::channel::channel (const std::string &name_)
+: name (name_)
+{
+}
+
+void journal::channel::pass (const std::string &test_name)
+{
+    results.push_back (entry (test_name, entry::PASSED));
+}
+
+void journal::channel::fail (const std::string &test_name)
+{
+    results.push_back (entry (test_name, entry::FAILED));
+}
+
+void journal::channel::summarize (int &passed, int &failed) const
+{
+    passed = 0;
+    failed = 0;
+
+    bool header_printed = false;
+
+    for (entry_list::const_iterator iter = results.begin();
+         iter != results.end();
+         ++iter) {
+
+        if (iter->status == entry::PASSED) {
+            ++passed;
+        } else {
+            ++failed;
+
+            if (!header_printed) {
+                header_printed = true;
+                std::cout << "In test \"" << name << "\":" << std::endl;
+            }
+
+            std::cout << "    failed: " << iter->name << std::endl;
+        }
+    }
+
+    if (header_printed) {
+        std::cout << std::endl;
+    }
+}
+
+journal::journal ()
+: channels_mutex (PTHREAD_MUTEX_INITIALIZER)
+{
+}
+
+journal::channel& journal::allocate_channel (const std::string &name)
+{
+    pthread_mutex_lock (&channels_mutex);
+    channels.push_back (journal::channel (name));
+    journal::channel &ref = *channels.rbegin();
+    pthread_mutex_unlock (&channels_mutex);
+    return ref;
+}
+
+void journal::summarize () const
+{
+    pthread_mutex_lock (&channels_mutex);
+
+    int total_passed = 0, total_failed = 0;
+
+    for (channel_list::const_iterator iter = channels.begin();
+         iter != channels.end();
+         ++iter) {
+        int passed = 0, failed = 0;
+        iter->summarize (passed, failed);
+        total_passed += passed;
+        total_failed += failed;
+    }
+
+    int total = total_passed + total_failed;
+    std::cout << std::endl
+              << "--------------------" << std::endl
+              << "   Run: " << total << std::endl
+              << "Passed: " << total_passed << std::endl
+              << "Failed: " << total_failed << std::endl;
+
+    pthread_mutex_unlock (&channels_mutex);
+}
+
+class test {
+    journal::channel &jc;
+    pthread_t thread;
+
+protected:
+    static void* run_ (void *ptr);
+
+    virtual void setup () = 0;
+    virtual void run () = 0;
+    virtual void cleanup () = 0;
+
+public:
+    test (const std::string &name_, journal &j);
+    virtual ~test ();
+
+    void wait_for_end ();
+
+    bool should (const std::string &test_name, bool exp);
+    void pass (const std::string &test_name);
+    void fail (const std::string &test_name);
+};
+
+test::test (const std::string &name_, journal &j)
+: jc (j.allocate_channel (name_))
+{
+    pthread_create (&thread, NULL, test::run_, this);
+}
+
+test::~test ()
+{
+}
+
+void* test::run_ (void *ptr)
+{
+    assert (ptr != NULL);
+    test *t = static_cast<test *>(ptr);
+    t->setup ();
+    t->run ();
+    t->cleanup ();
+    return NULL;
+}
+
+void test::wait_for_end ()
+{
+    pthread_join (thread, NULL);
+}
+
+bool test::should (const std::string &test_name, bool exp)
+{
+    if (exp) {
+        pass (test_name);
+    } else {
+        fail (test_name);
+    }
+    return exp;
+}
+
+void test::pass (const std::string &test_name)
+{
+    std::cout << ".";
+    jc.pass (test_name);
+}
+
+void test::fail (const std::string &test_name)
+{
+    std::cout << "x";
+    jc.fail (test_name);
+}
+
+
+
+class demo_test: public test {
+protected:
+    virtual void setup ();
+    virtual void run ();
+    virtual void cleanup ();
+
+public:
+    demo_test (journal &j);
+};
+
+demo_test::demo_test (journal &j)
+: test ("Demo test", j)
+{
+}
+
+void demo_test::setup ()
+{
+    // Remove a directory, if any, and create a new one
+    system ("rm -rf /tmp/foo");
+    system ("mkdir /tmp/foo");
+
+    // Create required files
+    system ("touch /tmp/foo/1");
+    system ("touch /tmp/foo/2");
+}
+
+void demo_test::run ()
+{
     consumer cons;
-    uint32_t wid = 0;
+    int wid = 0;
 
-    prod.assign (&cons);
-
+    /* Add a watch and test a result */
     cons.input.setup ("/tmp/foo", IN_ATTRIB);
     cons.output.wait ();
     wid = cons.output.added_watch_id ();
 
+    should ("watch is added successfully", wid != -1);
+
+    /* Produce fs activity and see what will happen */
     events expected;
     expected.insert (event("1", wid, IN_ATTRIB));
     expected.insert (event("2", wid, IN_ATTRIB));
@@ -495,15 +729,24 @@ int main (int argc, char *argv[]) {
 
     system ("touch /tmp/foo/1");
     system ("touch /tmp/foo/2");
-    
+
     cons.output.wait ();
     expected = cons.output.left_unregistered ();
-    
-    for (events::iterator it = expected.begin(); it != expected.end(); ++it) {
-        std::cout << '[' << it->watch << "] " << it->filename << std::endl;
-    }
+
+    should ("all events registered", expected.empty());
 
     cons.input.interrupt ();
-    
+}
+
+void demo_test::cleanup ()
+{
+    system ("rm -rf /tmp/foo");
+}
+
+int main (int argc, char *argv[]) {
+    journal j;
+    demo_test dt (j);
+    dt.wait_for_end ();
+    j.summarize ();
     return 0;
 }
