@@ -13,13 +13,14 @@ bool event::operator< (const event &ev) const
     return watch != ev.watch ? watch < ev.watch : filename < ev.filename;
 }
 
-event_by_name::event_by_name (const std::string &name)
+event_by_name_and_wid::event_by_name_and_wid (const std::string &name, uint32_t wid)
 : look_for (name)
+, watch_id (wid)
 {
 }
 
-bool event_by_name::operator() (const event &ev) const
+bool event_by_name_and_wid::operator() (const event &ev) const
 {
-    return ev.filename == look_for;
+    return ev.filename == look_for && ev.watch == watch_id;
 }
 

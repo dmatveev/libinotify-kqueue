@@ -15,11 +15,12 @@ struct event {
 
 typedef std::set<event> events;
 
-class event_by_name {
+class event_by_name_and_wid {
     std::string look_for;
+    uint32_t watch_id;
 
 public:
-    event_by_name (const std::string &name);
+    event_by_name_and_wid (const std::string &name, uint32_t wid);
     bool operator() (const event &ev) const;
 };
 
