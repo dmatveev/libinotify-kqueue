@@ -1,5 +1,4 @@
 #include <cstddef> // NULL
-#include <cstdint> // uint32_t
 #include <cstring> // memset
 #include <cstdlib> // system
 #include <cassert>
@@ -8,9 +7,19 @@
 #include <set>
 #include <algorithm> // find_if
 #include <pthread.h>
-#include <sys/inotify.h>
 #include <poll.h>
 #include <iostream>
+
+#ifdef __linux__
+#  include "<sys/inotify.h>"
+#  include <cstdint> // uint32_t, requires -std=c++0x
+#elif defined (__NetBSD__)
+#  include "inotify.h"
+#  include <stdint.h>
+#elif
+#  error Currently unsupported
+#endif
+
 
 #define LOG(X)                                               \
     std::cout                                                \
