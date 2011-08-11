@@ -11,25 +11,36 @@
 #include <iostream>
 
 #ifdef __linux__
-#  include "<sys/inotify.h>"
+#  include <sys/inotify.h>
 #  include <cstdint> // uint32_t, requires -std=c++0x
 #elif defined (__NetBSD__)
 #  include "inotify.h"
 #  include <stdint.h>
-#elif
+#else
 #  error Currently unsupported
 #endif
 
 static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-#define LOG(X)                                                            \
-    do {                                                                  \
-        pthread_mutex_lock (&log_mutex);                                  \
-        std::cout                                                         \
-            << reinterpret_cast<unsigned int>(pthread_self ()) << "    "  \
-            << X                                                          \
-            << std::endl;                                                 \
-        pthread_mutex_unlock (&log_mutex);                                \
+static unsigned int current_thread ()
+{
+#ifdef __linux__
+    return static_cast<unsigned int>(pthread_self ());
+#elif defined (__NetBSD__)
+    return reinterpret_cast<unsigned int>(pthread_self ());
+#else
+    error Currently unsupported
+#endif
+}
+
+#define LOG(X)                             \
+    do {                                   \
+        pthread_mutex_lock (&log_mutex);   \
+        std::cout                          \
+            << current_thread() << "    "  \
+            << X                           \
+            << std::endl;                  \
+        pthread_mutex_unlock (&log_mutex); \
     } while (0)
 
 struct event {
