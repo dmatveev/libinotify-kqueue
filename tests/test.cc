@@ -20,12 +20,17 @@
 #  error Currently unsupported
 #endif
 
+static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-#define LOG(X)                                               \
-    std::cout                                                \
-    << static_cast<unsigned int>(pthread_self ()) << "    "  \
-    << X                                                     \
-    << std::endl
+#define LOG(X)                                                            \
+    do {                                                                  \
+        pthread_mutex_lock (&log_mutex);                                  \
+        std::cout                                                         \
+            << reinterpret_cast<unsigned int>(pthread_self ()) << "    "  \
+            << X                                                          \
+            << std::endl;                                                 \
+        pthread_mutex_unlock (&log_mutex);                                \
+    } while (0)
 
 struct event {
     std::string filename;
@@ -83,6 +88,8 @@ public:
     bool wait ();
     void interrupt ();
     void reset ();
+
+    std::string named () const;
 };
 
 action::action (const std::string &name_)
@@ -99,26 +106,35 @@ action::~action ()
 void action::init ()
 {
     // initialize the barrier for two threads: a producer and a consumer
+    LOG (name << ": Initializing");
     pthread_barrier_init (&barrier, NULL, 2);
     interrupted = false;
 }
 
 bool action::wait ()
 {
+    LOG (name << ": Sleeping on a barrier");
     pthread_barrier_wait (&barrier);
     return !interrupted;
 }
 
 void action::interrupt ()
 {
+    LOG (name << ": Marking action interrupted");
     interrupted = true;
     wait ();
 }
 
 void action::reset ()
 {
+    LOG (name << ": Resetting");
     pthread_barrier_destroy (&barrier);
     init ();
+}
+
+std::string action::named () const
+{
+    return name;
 }
 
 
@@ -132,7 +148,7 @@ public:
 
     struct activity {
         events expected;
-        unsigned int timeout;
+        int timeout;
     };
 
     struct add_modify {
@@ -173,6 +189,7 @@ request::request ()
 
 void request::setup (const events &expected, unsigned int timeout)
 {
+    LOG (named() << ": Setting up to register an activity");
     current = REGISTER_ACTIVITY;
     variants._act.expected = expected;
     variants._act.timeout = timeout;
@@ -181,6 +198,7 @@ void request::setup (const events &expected, unsigned int timeout)
 
 void request::setup (const std::string &path, uint32_t mask)
 {
+    LOG (named() << ": Setting up to watch a path");
     current = ADD_MODIFY_WATCH;
     variants._am.path = path;
     variants._am.mask = mask;
@@ -189,6 +207,7 @@ void request::setup (const std::string &path, uint32_t mask)
 
 void request::setup (uint32_t rm_id)
 {
+    LOG (named() << ": Setting up to stop a path");
     current = REMOVE_WATCH;
     variants._rm.watch_id = rm_id;
     wait ();
@@ -252,6 +271,7 @@ response::response ()
 
 void response::setup (const events &unregistered)
 {
+    LOG (named() << ": Passing back unregistered events");
     current = UNREGISTERED_EVENTS;
     variants._left_unreg = unregistered;
     wait ();
@@ -259,6 +279,7 @@ void response::setup (const events &unregistered)
 
 void response::setup (uint32_t watch_id)
 {
+    LOG (named() << ": Passing back new watch id");
     current = WATCH_ID;
     variants._watch_id = watch_id;
     wait ();
@@ -404,6 +425,7 @@ void consumer::register_activity (request::activity activity)
     }
 
     // Inform producer about results
+    LOG ("CONS: Okay, informing producer about results...");
     input.reset ();
     output.setup (activity.expected);
 }
@@ -438,6 +460,8 @@ void consumer::run ()
             remove_watch (input.remove_data ());
             break;
         }
+
+        LOG ("CONS: Sleeping on input");
     }
 }
 
@@ -451,11 +475,11 @@ int main (int argc, char *argv[]) {
     cons.input.setup ("/tmp/foo", IN_ATTRIB);
     cons.output.wait ();
     wid = cons.output.added_watch_id ();
-    cons.output.reset ();
 
     events expected;
     expected.insert (event("1", wid, IN_ATTRIB));
     expected.insert (event("2", wid, IN_ATTRIB));
+    cons.output.reset ();
     cons.input.setup (expected, 1);
 
     system ("touch /tmp/foo/1");
@@ -463,7 +487,6 @@ int main (int argc, char *argv[]) {
     
     cons.output.wait ();
     expected = cons.output.left_unregistered ();
-    cons.output.reset ();
     
     for (events::iterator it = expected.begin(); it != expected.end(); ++it) {
         std::cout << '[' << it->watch << "] " << it->filename << std::endl;
