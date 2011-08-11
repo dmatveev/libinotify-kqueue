@@ -9,7 +9,7 @@ ifeq ($(UNAME),Linux)
 endif
 
 ifeq ($(UNAME),NetBSD)
-	CXXFLAGS+= ../blob.a
+	LDFLAGS+=../blob.a
 endif
 
 CORE_OBJS=\
