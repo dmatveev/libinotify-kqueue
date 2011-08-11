@@ -1,13 +1,30 @@
+UNAME=$(shell uname)
 APP=test
 CXX=g++
-CFLAGS=-I.. -O2 -Wall -ggdb
+CXXFLAGS=-I.. -O2 -Wall -ggdb
 LDFLAGS=-lpthread
 
-test: test.cc
-	$(CXX) $(CFLAGS) test.cc ../blob.a $(LDFLAGS) -o $(APP)
+ifeq ($(UNAME),Linux)
+	CXXFLAGS+=-std=c++0x
+endif
 
-linux: test.cc
-	$(CXX) $(CFLAGS) test.cc -std=c++0x $(LDFLAGS) -o $(APP)
+ifeq ($(UNAME),NetBSD)
+	CXXFLAGS+= ../blob.a
+endif
+
+CORE_OBJS=\
+	core/log.o \
+	core/event.o \
+	core/action.o \
+	core/request.o \
+	core/response.o \
+	core/inotify_client.o \
+	core/consumer.o \
+	core/journal.o \
+	core/test.o
+
+test: test.cc $(CORE_OBJS)
+	$(CXX) $(CXXFLAGS) test.cc $(CORE_OBJS) $(LDFLAGS) -o $(APP)
 
 clean:
-	rm -f *~ *.o
+	rm -f *~ *.o core/*~ core/*.o
