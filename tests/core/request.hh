@@ -41,7 +41,7 @@ public:
     request ();
     void setup (const events &expected, unsigned int timeout = 0);
     void setup (const std::string &path, uint32_t mask);
-    void setup (uint32_t rm_id);
+    void setup (int rm_id);
 
     variant current_variant () const;
     activity activity_data () const;

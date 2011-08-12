@@ -83,42 +83,106 @@ void start_stop_dir_test::run ()
 
     expected = cons.output.left_unregistered ();
     should ("got IN_IGNORED on watch stop", expected.empty ());
-    
-    // /* Tell again to consumer to watch for an IN_ATTRIB event  */
-    // expected = events();
-    // expected.insert (event ("", wid, IN_ATTRIB));
-    // cons.output.reset ();
-    // cons.input.setup (expected, 1);
-    
-    // /* Produce activity. Consumer should not see it */
-    // system ("touch ssdt-working");
 
-    // cons.output.wait ();
-    // expected = cons.output.left_unregistered ();
+    /* These events should not be visible to watch */
+    expected = events ();
+    expected.insert (event ("", wid, IN_ATTRIB));
+    expected.insert (event ("2", wid, IN_ATTRIB));
 
-    // should ("events should not be registered on a removed watch", expected.size() == 1);
+    cons.output.reset ();
+    cons.input.setup (expected, 1);
 
-    // /* Now start watching again. Everything should work */
-    // cons.input.setup ("ssdt-working", IN_ATTRIB);
-    // cons.output.wait ();
+    system ("touch ssdt-working");
+    system ("touch ssdt-working/2");
 
-    // wid = cons.output.added_watch_id ();
+    cons.output.wait ();
+    expected = cons.output.left_unregistered ();
 
-    // should ("start watching a file after stop", wid != -1);
+    should ("items on a stopped watch are unregistered", expected.size() == 2);
 
-    // /* Tell consumer to watch for an IN_ATTRIB event */
-    // expected = events ();
-    // expected.insert (event ("", wid, IN_ATTRIB));
-    // cons.output.reset ();
-    // cons.input.setup (expected, 1);
+    /* Now resume watching */
+    cons.output.reset ();
+    cons.input.setup ("ssdt-working", IN_ATTRIB);
+    cons.output.wait ();
 
-    // /* Produce activity, consumer should watch it */
-    // system ("touch ssdt-working");
+    wid = cons.output.added_watch_id ();
 
-    // cons.output.wait ();
+    should ("watch is added successfully again", wid != -1);
 
-    // expected = cons.output.left_unregistered ();
-    // should ("all produced events are registered after resume", expected.empty ());
+    expected = events ();
+    expected.insert (event ("", wid, IN_ATTRIB));
+    expected.insert (event ("1", wid, IN_ATTRIB));
+    expected.insert (event ("2", wid, IN_ATTRIB));
+    expected.insert (event ("3", wid, IN_ATTRIB));
+
+    cons.output.reset ();
+    cons.input.setup (expected, 1);
+
+    system ("touch ssdt-working");
+    system ("touch ssdt-working/1");
+    system ("touch ssdt-working/2");
+    system ("touch ssdt-working/3");
+
+    cons.output.wait ();
+    expected = cons.output.left_unregistered ();
+
+    should ("receive all events on a resumed watch", expected.empty());
+
+    /* Now, start watching on a file from a directory manually */
+    int child_wid = 0;
+
+    cons.output.reset ();
+    cons.input.setup ("ssdt-working/3", IN_ATTRIB);
+    cons.output.wait ();
+
+    child_wid = cons.output.added_watch_id ();
+
+    should ("watch on a file in a directory is added successfully", wid != -1);
+
+    /* On a single touch, should recive two events */
+    expected = events ();
+    expected.insert (event ("3", wid, IN_ATTRIB));
+    expected.insert (event ("", child_wid, IN_ATTRIB));
+
+    cons.output.reset ();
+    cons.input.setup (expected, 1);
+
+    system ("touch ssdt-working/3");
+
+    cons.output.wait ();
+    expected = cons.output.left_unregistered ();
+
+    should ("receive events for a same file from two watches", expected.empty());
+
+    /* Now stop a directory watch */
+    cons.output.reset ();
+    cons.input.setup (wid);
+    cons.output.wait ();
+
+    /* Linux inotify sends IN_IGNORED on stop */
+    expected = events ();
+    expected.insert (event ("", wid, IN_IGNORED));
+
+    cons.output.reset ();
+    cons.input.setup (expected, 1);
+    cons.output.wait ();
+
+    /* Still should be able to receive notifications from an additional watch */
+    expected = events ();
+    expected.insert (event ("3", wid, IN_ATTRIB));
+    expected.insert (event ("", child_wid, IN_ATTRIB));
+
+    cons.output.reset ();
+    cons.input.setup (expected, 1);
+
+    system ("touch ssdt-working/3");
+
+    cons.output.wait ();
+    expected = cons.output.left_unregistered ();
+
+    should ("after stop on a directory watch, "
+            "receive only a single event from a file watch",
+            expected.size() == 1 && expected.begin()->watch == wid);
 
     cons.input.interrupt ();
 }

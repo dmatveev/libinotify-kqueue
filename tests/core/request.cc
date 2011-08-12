@@ -25,7 +25,7 @@ void request::setup (const std::string &path, uint32_t mask)
     wait ();
 }
 
-void request::setup (uint32_t rm_id)
+void request::setup (int rm_id)
 {
     LOG (named() << ": Setting up to stop a path");
     current = REMOVE_WATCH;

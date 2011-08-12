@@ -15,7 +15,7 @@ void response::setup (const events &unregistered)
     wait ();
 }
 
-void response::setup (uint32_t watch_id)
+void response::setup (int watch_id)
 {
     LOG (named() << ": Passing back new watch id");
     current = WATCH_ID;

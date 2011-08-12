@@ -24,7 +24,7 @@ private:
 public:
     response ();
     void setup (const events &unregistered);
-    void setup (uint32_t watch_id);
+    void setup (int watch_id);
 
     variant current_variant () const;
     events left_unregistered () const;

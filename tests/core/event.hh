@@ -6,10 +6,10 @@
 
 struct event {
     std::string filename;
-    uint32_t watch;
+    int watch;
     uint32_t flags;
 
-    event (const std::string &filename_ = "", uint32_t watch_ = 0, uint32_t flags_ = 0);
+    event (const std::string &filename_ = "", int watch_ = 0, uint32_t flags_ = 0);
     bool operator< (const event &ev) const;
 };
 
@@ -17,10 +17,10 @@ typedef std::set<event> events;
 
 class event_by_name_and_wid {
     std::string look_for;
-    uint32_t watch_id;
+    int watch_id;
 
 public:
-    event_by_name_and_wid (const std::string &name, uint32_t wid);
+    event_by_name_and_wid (const std::string &name, int wid);
     bool operator() (const event &ev) const;
 };
 

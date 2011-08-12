@@ -46,11 +46,12 @@ bool inotify_client::get_next_event (event& ev, int timeout) const
         read (fd, buffer, IE_BUFSIZE);
 
         struct inotify_event *ie = (struct inotify_event *) buffer;
-        ev.filename = ie->name;
+        if (ie->len) {
+            ev.filename = ie->name;
+        }
         ev.flags = ie->mask;
         ev.watch = ie->wd;
-        bool ignored = ie->mask & 0x00008000;
-        LOG ("INO: Got next event! " << VAR (ie->name) << VAR (ie->wd) << VAR(ignored));
+        LOG ("INO: Got next event! " << VAR (ev.filename) << VAR (ev.watch));
         return true;
     }
 
