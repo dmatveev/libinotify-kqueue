@@ -41,6 +41,7 @@ void consumer::register_activity (request::activity activity)
 void consumer::add_modify_watch (request::add_modify add_modify)
 {
     uint32_t id = ino.watch (add_modify.path, add_modify.mask);
+    LOG ("CONS: Added watch");
     input.reset ();
     output.setup (id);
 }
@@ -48,6 +49,7 @@ void consumer::add_modify_watch (request::add_modify add_modify)
 void consumer::remove_watch (request::remove remove)
 {
     ino.cancel (remove.watch_id);
+    LOG ("CONS: Cancelled watch");
     input.reset ();
     output.wait ();
 }

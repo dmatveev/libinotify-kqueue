@@ -1,8 +1,13 @@
 UNAME=$(shell uname)
-APP=test
+APP=tests
 CXX=g++
 CXXFLAGS=-I.. -O2 -Wall -ggdb
 LDFLAGS=-lpthread
+
+
+# Uncomment this line to enable debug logging.
+# The tests suite should be rebuilt completely for that.
+CXXFLAGS+=-DENABLE_LOGGING
 
 ifeq ($(UNAME),Linux)
 	CXXFLAGS+=-std=c++0x
@@ -23,8 +28,16 @@ CORE_OBJS=\
 	core/journal.o \
 	core/test.o
 
-test: test.cc $(CORE_OBJS)
-	$(CXX) $(CXXFLAGS) test.cc $(CORE_OBJS) $(LDFLAGS) -o $(APP)
+TEST_OBJS=\
+	start_stop_test.o \
+	start_stop_dir_test.o \
+	tests.o
+
+tests-app: $(TEST_OBJS) $(CORE_OBJS)
+	$(CXX) $(CXXFLAGS) $(TEST_OBJS) $(CORE_OBJS) $(LDFLAGS) -o $(APP)
+
+run:
+	@./tests
 
 clean:
 	rm -f *~ *.o core/*~ core/*.o

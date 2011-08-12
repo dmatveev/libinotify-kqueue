@@ -71,6 +71,8 @@ void journal::summarize () const
 
     int total_passed = 0, total_failed = 0;
 
+    std::cout << std::endl << std::endl;
+
     for (channel_list::const_iterator iter = channels.begin();
          iter != channels.end();
          ++iter) {
@@ -81,8 +83,7 @@ void journal::summarize () const
     }
 
     int total = total_passed + total_failed;
-    std::cout << std::endl
-              << "--------------------" << std::endl
+    std::cout << "--------------------" << std::endl
               << "   Run: " << total << std::endl
               << "Passed: " << total_passed << std::endl
               << "Failed: " << total_failed << std::endl;

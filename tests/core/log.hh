@@ -19,8 +19,11 @@ unsigned int current_thread ();
               << std::endl;                   \
           release_log_lock ();                \
       } while (0)
+#  define VAR(X) \
+     '[' << #X << ": " << X << "] "
 #else
 #  define LOG(X)
+#  define VAR(X)
 #endif // ENABLE_LOGGING
 
 #endif // __LOG_HH__
