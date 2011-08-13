@@ -6,21 +6,23 @@ action::action (const std::string &name_)
 , interrupted (false)
 , waiting (false)
 {
+    pthread_mutex_init (&action_mutex, NULL);
+    pthread_mutex_init (&cond_mutex, NULL);
+    pthread_cond_init (&cond, NULL);
+
     init ();
 }
 
 action::~action ()
 {
+    pthread_mutex_destroy (&action_mutex);
+    pthread_mutex_destroy (&cond_mutex);
+    pthread_cond_destroy (&cond);
 }
 
 void action::init ()
 {
-    // initialize the barrier for two threads: a producer and a consumer
     LOG (name << ": Initializing");
-    // pthread_barrier_init (&barrier, NULL, 2);
-    pthread_mutex_init (&action_mutex, NULL);
-    pthread_mutex_init (&cond_mutex, NULL);
-    pthread_cond_init (&cond, NULL);
     interrupted = false;
     waiting = false;
 }
@@ -53,17 +55,13 @@ bool action::wait ()
 void action::interrupt ()
 {
     LOG (name << ": Marking action interrupted");
-    // interrupted = true;
+    interrupted = true;
     wait ();
 }
 
 void action::reset ()
 {
     LOG (name << ": Resetting");
-    // pthread_barrier_destroy (&barrier);
-    // pthread_mutex_destroy (&mutex);
-    // pthread_mutex_destroy
-    // pthread_cond_destroy (&cond);
     init ();
 }
 

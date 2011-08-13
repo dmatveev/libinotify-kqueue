@@ -9,6 +9,7 @@
 class consumer {
     std::string path;
     inotify_client ino;
+    pthread_t self;
 
     // yes, these methods take arguments by a value. intentionally
     void register_activity (request::activity activity);
@@ -20,6 +21,7 @@ public:
     response output;
 
     consumer ();
+    ~consumer ();
     static void* run_ (void *ptr);
     void run ();
 };

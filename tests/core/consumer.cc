@@ -5,8 +5,17 @@
 
 consumer::consumer ()
 {
-    pthread_t pid;
-    pthread_create (&pid, NULL, consumer::run_, this);
+    pthread_create (&self, NULL, consumer::run_, this);
+}
+
+consumer::~consumer ()
+{
+    // It is a trick. The consumer object lives in a separate thread that is created
+    // in its constructor. However, the object itself is created in another (parent)
+    // thread, so the destructor should work in the same thread (I cound on the
+    // static allocation).
+    LOG ("CONS: Joining on self");
+    pthread_join (self, NULL);
 }
 
 void* consumer::run_ (void *ptr)
