@@ -31,6 +31,7 @@ CORE_OBJS=\
 TEST_OBJS=\
 	start_stop_test.o \
 	start_stop_dir_test.o \
+	notifications_test.o \
 	tests.o
 
 tests-app: $(TEST_OBJS) $(CORE_OBJS)

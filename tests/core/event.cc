@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "event.hh"
 #include "log.hh"
 
@@ -29,3 +30,9 @@ bool event_by_name_and_wid::operator() (const event &ev) const
     return ev.filename == look_for && ev.watch == watch_id;
 }
 
+
+bool contains (const events &events, const std::string filename, uint32_t flags)
+{
+    event_by_name_and_wid matcher (filename, flags);
+    return std::find_if (events.begin(), events.end(), matcher) != events.end();
+}

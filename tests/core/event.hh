@@ -24,4 +24,6 @@ public:
     bool operator() (const event &ev) const;
 };
 
+bool contains (const events &events, const std::string filename, uint32_t flags);
+
 #endif // __EVENT_HH__
