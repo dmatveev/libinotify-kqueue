@@ -152,7 +152,9 @@ void start_stop_dir_test::run ()
     cons.output.wait ();
     expected = cons.output.left_unregistered ();
 
-    should ("receive events for a same file from two watches", expected.empty());
+    should ("receive events for a same file from both watches "
+            "(sometimes this test fails event on Linux, at least on 2.6.39)",
+            expected.empty());
 
     /* Now stop a directory watch */
     cons.output.reset ();

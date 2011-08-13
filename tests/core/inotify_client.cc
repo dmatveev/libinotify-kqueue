@@ -15,14 +15,17 @@ inotify_client::~inotify_client ()
     // close (fd);
 }
 
-uint32_t inotify_client::watch (const std::string &filename, uint32_t flags)
+int inotify_client::watch (const std::string &filename, uint32_t flags)
 {
     assert (fd != -1);
     LOG ("INO: Adding " << VAR (filename) << VAR (flags));
-    return inotify_add_watch (fd, filename.c_str(), flags);
+
+    int retval = inotify_add_watch (fd, filename.c_str(), flags);
+    LOG ("INO: " << VAR (retval));
+    return retval;
 }
 
-void inotify_client::cancel (uint32_t watch_id)
+void inotify_client::cancel (int watch_id)
 {
     assert (fd != -1);
     if (inotify_rm_watch (fd, watch_id) != 0) {

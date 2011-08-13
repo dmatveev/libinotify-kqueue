@@ -10,8 +10,8 @@ class inotify_client {
 public:
     inotify_client ();
     ~inotify_client ();
-    uint32_t watch (const std::string &filename, uint32_t flags);
-    void cancel (uint32_t watch_id);
+    int watch (const std::string &filename, uint32_t flags);
+    void cancel (int wid);
     bool get_next_event (event &ev, int timeout) const;
 };
 
