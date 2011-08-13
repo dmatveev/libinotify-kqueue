@@ -13,6 +13,7 @@ void response::setup (const events &unregistered)
     current = UNREGISTERED_EVENTS;
     variants._left_unreg = unregistered;
     wait ();
+    LOG (named() << " YAY!!!");
 }
 
 void response::setup (int watch_id)

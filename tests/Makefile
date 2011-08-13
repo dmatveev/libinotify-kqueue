@@ -7,7 +7,7 @@ LDFLAGS=-lpthread
 
 # Uncomment this line to enable debug logging.
 # The tests suite should be rebuilt completely for that.
-# CXXFLAGS+=-DENABLE_LOGGING
+CXXFLAGS+=-DENABLE_LOGGING
 
 ifeq ($(UNAME),Linux)
 	CXXFLAGS+=-std=c++0x

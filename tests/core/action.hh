@@ -4,11 +4,17 @@
 #include "platform.hh"
 
 class action {
-    pthread_barrier_t barrier;
+    // pthread_barrier_t barrier;
     void init();
+
+    pthread_mutex_t action_mutex;
+
+    pthread_cond_t cond;
+    pthread_mutex_t cond_mutex;
 
     const std::string name;
     volatile bool interrupted;
+    volatile bool waiting;
 
 public:
     action (const std::string &name_);

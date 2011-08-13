@@ -27,7 +27,7 @@ void request::setup (const std::string &path, uint32_t mask)
 
 void request::setup (int rm_id)
 {
-    LOG (named() << ": Setting up to stop a path");
+    LOG (named() << ": Setting up to stop a watch");
     current = REMOVE_WATCH;
     variants._rm.watch_id = rm_id;
     wait ();
