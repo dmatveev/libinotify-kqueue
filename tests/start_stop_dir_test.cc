@@ -8,7 +8,7 @@
 #endif
 
 start_stop_dir_test::start_stop_dir_test (journal &j)
-: test ("Start-stop directory test", j)
+: test ("Start-stop directory", j)
 {
 }
 

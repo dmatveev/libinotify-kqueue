@@ -2,7 +2,7 @@
 #include "notifications_dir_test.hh"
 
 notifications_dir_test::notifications_dir_test (journal &j)
-: test ("Directory notifications test", j)
+: test ("Directory notifications", j)
 {
 }
 

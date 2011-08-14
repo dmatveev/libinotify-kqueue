@@ -1,7 +1,7 @@
 #include "notifications_test.hh"
 
 notifications_test::notifications_test (journal &j)
-: test ("File notifications test", j)
+: test ("File notifications", j)
 {
 }
 
