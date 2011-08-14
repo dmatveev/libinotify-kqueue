@@ -36,6 +36,7 @@ CORE_OBJS=\
 TEST_OBJS=\
 	start_stop_test.o \
 	start_stop_dir_test.o \
+	fail_test.o \
 	notifications_test.o \
 	notifications_dir_test.o \
 	tests.o
