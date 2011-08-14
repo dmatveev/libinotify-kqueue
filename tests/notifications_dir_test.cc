@@ -1,6 +1,16 @@
 #include <algorithm>
 #include "notifications_dir_test.hh"
 
+/* Always present on Linux (not sure about a concrete 2.6.x release)
+ * May be "to be implemented" on BSDs */
+#ifndef IN_IGNORED
+#  define IN_IGNORED	 0x00008000
+#endif
+
+#ifndef IN_ISDIR
+#  define IN_ISDIR	     0x40000000
+#endif
+
 notifications_dir_test::notifications_dir_test (journal &j)
 : test ("Directory notifications", j)
 {

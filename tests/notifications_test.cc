@@ -1,5 +1,11 @@
 #include "notifications_test.hh"
 
+/* Always present on Linux (not sure about a concrete 2.6.x release)
+ * May be "to be implemented" on BSDs */
+#ifndef IN_IGNORED
+#  define IN_IGNORED	 0x00008000
+#endif
+
 notifications_test::notifications_test (journal &j)
 : test ("File notifications", j)
 {
