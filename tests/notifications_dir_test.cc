@@ -165,6 +165,26 @@ void notifications_dir_test::run ()
     should ("receive all events on moves", expected.empty ());
 #endif
 
+    /* These events are expected to appear on modifying an entry in a directory */
+    expected = events ();
+    expected.insert (event ("one", wid, IN_OPEN));
+    expected.insert (event ("one", wid, IN_MODIFY));
+    expected.insert (event ("one", wid, IN_CLOSE_WRITE));
+
+    cons.output.reset ();
+    cons.input.setup (expected, 2);
+
+    system ("echo Hello >> ntfsdt-working/one");
+
+    cons.output.wait ();
+    expected = cons.output.left_unregistered ();
+    should ("receive IN_OPEN event on modifying an entry in a directory",
+            !contains (expected, event ("one", wid, IN_OPEN)));
+    should ("receive IN_ATTRIB event on modifying an entry in a directory",
+            !contains (expected, event ("one", wid, IN_MODIFY)));
+    should ("receive IN_CLOSE_WRITE event on modifying an entry in a directory",
+            !contains (expected, event ("one", wid, IN_CLOSE_WRITE)));
+    
     /* This event is expected to appear on a rename */
     expected = events ();
     expected.insert (event ("", wid, IN_MOVE_SELF));
@@ -176,7 +196,7 @@ void notifications_dir_test::run ()
 
     cons.output.wait ();
     expected = cons.output.left_unregistered ();
-    should ("receive a move event", expected.empty ());
+    should ("receive a move events", expected.empty ());
 
     /* This event is expected to appear on remove */
     expected = events ();

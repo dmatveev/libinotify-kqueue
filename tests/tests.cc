@@ -3,8 +3,9 @@
 #include "notifications_test.hh"
 #include "notifications_dir_test.hh"
 #include "fail_test.hh"
+#include "update_flags_test.hh"
 
-#define THREADED
+// #define THREADED
 
 int main (int argc, char *argv[]) {
     journal j;
@@ -15,12 +16,14 @@ int main (int argc, char *argv[]) {
     notifications_test ntfst (j);
     notifications_dir_test ntfsdt (j);
     fail_test ft (j);
+    update_flags_test uft (j);
 
     sst.wait_for_end ();
     ssdt.wait_for_end ();
     ntfst.wait_for_end ();
     ntfsdt.wait_for_end ();
     ft.wait_for_end ();
+    uft.wait_for_end ();
 #else
     start_stop_test sst (j);
     sst.wait_for_end ();
@@ -36,6 +39,9 @@ int main (int argc, char *argv[]) {
 
     fail_test ft (j);
     ft.wait_for_end ();
+
+    update_flags_test uft (j);
+    uft.wait_for_end ();
 #endif
 
     j.summarize ();
