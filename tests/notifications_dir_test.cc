@@ -180,17 +180,29 @@ void notifications_dir_test::run ()
 
     /* This event is expected to appear on remove */
     expected = events ();
+    expected.insert (event ("", wid, IN_OPEN));
     expected.insert (event ("one", wid, IN_DELETE));
+    expected.insert (event ("", wid, IN_CLOSE_WRITE));
     expected.insert (event ("", wid, IN_DELETE_SELF));
+    expected.insert (event ("", wid, IN_IGNORED));
 
     cons.output.reset ();
-    cons.input.setup (expected, 2);
+    cons.input.setup (expected, 4);
 
     system ("rm -rf ntfsdt-working-2");
 
     cons.output.wait ();
     expected = cons.output.left_unregistered ();
-    should ("receive delete events for directory contents and self", expected.empty ());
+    should ("receive IN_OPEN on removing a directory",
+            !contains (expected, event ("", wid, IN_OPEN)));
+    should ("receive IN_DELETE for a file in a directory on removing a directory",
+            !contains (expected, event ("one", wid, IN_OPEN)));
+    should ("receive IN_CLOSE_WRITE on removing a directory",
+            !contains (expected, event ("", wid, IN_CLOSE_WRITE)));
+    should ("receive IN_DELETE_SELF on removing a directory",
+            !contains (expected, event ("", wid, IN_DELETE_SELF)));
+    should ("receive IN_IGNORED on removing a directory",
+            !contains (expected, event ("", wid, IN_IGNORED)));
     
     cons.input.interrupt ();
 }

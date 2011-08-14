@@ -49,11 +49,13 @@ bool test::should (const std::string &test_name, bool exp)
 void test::pass (const std::string &test_name)
 {
     std::cout << ".";
+    std::cout.flush ();
     jc.pass (test_name);
 }
 
 void test::fail (const std::string &test_name)
 {
     std::cout << "x";
+    std::cout.flush ();
     jc.fail (test_name);
 }
