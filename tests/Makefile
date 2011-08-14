@@ -9,6 +9,11 @@ LDFLAGS=-lpthread
 # The tests suite should be rebuilt completely for that.
 # CXXFLAGS+=-DENABLE_LOGGING
 
+# Uncomment this line to enable a tricky moves test.
+# It fails even on Linux, so I have to debug it. Anyway,
+# notifications_dir_test.o should be rebuilt to use it.
+# CXXFLAGS+=-DTESTS_MOVES_TRICKY
+
 ifeq ($(UNAME),Linux)
 	CXXFLAGS+=-std=c++0x
 endif
@@ -32,6 +37,7 @@ TEST_OBJS=\
 	start_stop_test.o \
 	start_stop_dir_test.o \
 	notifications_test.o \
+	notifications_dir_test.o \
 	tests.o
 
 tests-app: $(TEST_OBJS) $(CORE_OBJS)

@@ -42,8 +42,10 @@ bool inotify_client::get_next_event (event& ev, int timeout) const
     pfd.fd = fd;
     pfd.events = POLLIN;
 
+    LOG ("INO: Polling with " << VAR (timeout));
     poll (&pfd, 1, timeout * 1000);
-
+    LOG ("INO: Poll returned.");
+    
     if (pfd.revents & POLLIN) {
         char buffer[IE_BUFSIZE];
         read (fd, buffer, IE_BUFSIZE);
@@ -54,7 +56,8 @@ bool inotify_client::get_next_event (event& ev, int timeout) const
         }
         ev.flags = ie->mask;
         ev.watch = ie->wd;
-        LOG ("INO: Got next event! " << VAR (ev.filename) << VAR (ev.watch));
+        ev.cookie = ie->cookie;
+        LOG ("INO: Got next event! " << VAR (ev.filename) << VAR (ev.watch) << VAR (ev.flags));
         return true;
     }
 

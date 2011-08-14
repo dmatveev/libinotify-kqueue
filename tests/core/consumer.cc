@@ -34,10 +34,12 @@ void consumer::register_activity (request::activity activity)
            && (elapsed = time (NULL) - start) < activity.timeout) {
         event ev;
         if (ino.get_next_event (ev, activity.timeout)) {
-            event_by_name_and_wid matcher (ev.filename, ev.watch);
+            event_matcher matcher (ev);
             events::iterator it = std::find_if (activity.expected.begin(), activity.expected.end(), matcher); 
             if (it != activity.expected.end()) {
                 activity.expected.erase (it);
+            } else {
+                activity.expected.insert (ev);
             }
         }
     }

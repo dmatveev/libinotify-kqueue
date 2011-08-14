@@ -8,6 +8,7 @@ struct event {
     std::string filename;
     int watch;
     uint32_t flags;
+    uint32_t cookie;
 
     event (const std::string &filename_ = "", int watch_ = 0, uint32_t flags_ = 0);
     bool operator< (const event &ev) const;
@@ -15,15 +16,14 @@ struct event {
 
 typedef std::set<event> events;
 
-class event_by_name_and_wid {
-    std::string look_for;
-    int watch_id;
+class event_matcher {
+    event ev;
 
 public:
-    event_by_name_and_wid (const std::string &name, int wid);
-    bool operator() (const event &ev) const;
+    event_matcher (const event &ev_);
+    bool operator() (const event &ev_) const;
 };
 
-bool contains (const events &events, const std::string filename, uint32_t flags);
+bool contains (const events &ev, const event &ev_);
 
 #endif // __EVENT_HH__

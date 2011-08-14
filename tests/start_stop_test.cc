@@ -14,7 +14,7 @@ start_stop_test::start_stop_test (journal &j)
 
 void start_stop_test::setup ()
 {
-    system ("rm -rf sst-working");
+    cleanup ();
     system ("touch sst-working");
 }
 

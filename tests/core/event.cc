@@ -6,6 +6,7 @@ event::event (const std::string &filename_, int watch_, uint32_t flags_)
 : filename (filename_)
 , watch (watch_)
 , flags (flags_)
+, cookie (0)
 {
 }
 
@@ -15,24 +16,27 @@ bool event::operator< (const event &ev) const
     return watch != ev.watch ? watch < ev.watch : filename < ev.filename;
 }
 
-event_by_name_and_wid::event_by_name_and_wid (const std::string &name, int wid)
-: look_for (name)
-, watch_id (wid)
+event_matcher::event_matcher (const event &ev_)
+: ev(ev_)
 {
-    LOG ("Created matcher " << look_for << ':' << watch_id);
+    LOG ("Created matcher " << ev.filename << ':' << ev.watch);
 }
 
-bool event_by_name_and_wid::operator() (const event &ev) const
+bool event_matcher::operator() (const event &ev_) const
 {
-    LOG ("matching " << look_for << ':' << watch_id <<
-         " against " << ev.filename << ':' << ev.watch);
+    LOG ("matching " << ev.filename  << ':' << ev.watch  << '&' << ev.flags <<
+         " against " << ev_.filename << ':' << ev_.watch << '&' << ev_.flags);
 
-    return ev.filename == look_for && ev.watch == watch_id;
+    return
+        (ev.filename == ev_.filename
+         && ev.watch == ev_.watch
+         && (ev.flags & ev_.flags));
 }
 
 
-bool contains (const events &events, const std::string filename, uint32_t flags)
+bool contains (const events &ev, const event &ev_)
 {
-    event_by_name_and_wid matcher (filename, flags);
-    return std::find_if (events.begin(), events.end(), matcher) != events.end();
+    event_matcher matcher (ev_);
+    events::iterator iter = std::find_if (ev.begin(), ev.end(), matcher);
+    return (iter != ev.end());
 }

@@ -14,8 +14,8 @@ start_stop_dir_test::start_stop_dir_test (journal &j)
 
 void start_stop_dir_test::setup ()
 {
-    system ("rm -rf ssdt-working");
-
+    cleanup ();
+    
     system ("mkdir ssdt-working");
     system ("touch ssdt-working/1");
     system ("touch ssdt-working/2");
@@ -25,6 +25,7 @@ void start_stop_dir_test::setup ()
 void start_stop_dir_test::run ()
 {
     consumer cons;
+    events expected;
     int wid = 0;
 
     /* Add a watch */
@@ -36,7 +37,6 @@ void start_stop_dir_test::run ()
     should ("watch is added successfully", wid != -1);
 
     /* Tell consumer to watch for an IN_ATTRIB event */
-    events expected;
     expected.insert (event ("", wid, IN_ATTRIB));
     cons.output.reset ();
     cons.input.setup (expected, 1);

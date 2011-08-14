@@ -14,6 +14,7 @@ void notifications_test::setup ()
 void notifications_test::run ()
 {
     consumer cons;
+    events expected;
     int wid = 0;
 
     /* Add a watch */
@@ -25,7 +26,6 @@ void notifications_test::run ()
     should ("watch is added successfully", wid != -1);
 
     /* These events are expected to occur on a touch */
-    events expected;
     expected.insert (event ("", wid, IN_OPEN));
     expected.insert (event ("", wid, IN_ATTRIB));
     expected.insert (event ("", wid, IN_CLOSE_WRITE));
@@ -37,22 +37,9 @@ void notifications_test::run ()
 
     cons.output.wait ();
     expected = cons.output.left_unregistered ();
-    should ("receive IN_OPEN on touch", !contains (expected, "", IN_OPEN));
-    should ("receive IN_ATTRIB on touch", !contains (expected, "", IN_ATTRIB));
-    should ("receive IN_CLOSE_WRITE on touch", !contains (expected, "", IN_CLOSE_WRITE));
-
-    /* These events are expected to occur on a link */
-    expected = events ();
-    expected.insert (event ("", wid, IN_ATTRIB));
-
-    cons.output.reset ();
-    cons.input.setup (expected, 1);
-
-    system ("ln ntfst-working ntfst-working-link");
-
-    cons.output.wait ();
-    expected = cons.output.left_unregistered ();
-    should ("receive IN_ATTRIB on link", !contains (expected, "", IN_ATTRIB));
+    should ("receive IN_OPEN on touch", !contains (expected, event ("", wid, IN_OPEN)));
+    should ("receive IN_ATTRIB on touch", !contains (expected, event ("", wid, IN_ATTRIB)));
+    should ("receive IN_CLOSE_WRITE on touch", !contains (expected, event ("", wid, IN_CLOSE_WRITE)));
 
     /* These events are expected to occur on a read */
     expected = events ();
@@ -66,8 +53,8 @@ void notifications_test::run ()
 
     cons.output.wait ();
     expected = cons.output.left_unregistered ();
-    should ("receive IN_OPEN on read", !contains (expected, "", IN_OPEN));
-    should ("receive IN_CLOSE_NOWRITE on read", !contains (expected, "", IN_CLOSE_NOWRITE));
+    should ("receive IN_OPEN on read", !contains (expected, event ("", wid, IN_OPEN)));
+    should ("receive IN_CLOSE_NOWRITE on read", !contains (expected, event ("", wid, IN_CLOSE_NOWRITE)));
 
     /* These events are expected to occur on a write */
     expected = events ();
@@ -82,9 +69,9 @@ void notifications_test::run ()
 
     cons.output.wait ();
     expected = cons.output.left_unregistered ();
-    should ("receive IN_OPEN on write", !contains (expected, "", IN_OPEN));
-    should ("receive IN_MOFIFY on write", !contains (expected, "", IN_MODIFY));
-    should ("receive IN_CLOSE_WRITE on write", !contains (expected, "", IN_CLOSE_WRITE));
+    should ("receive IN_OPEN on write", !contains (expected, event ("", wid, IN_OPEN)));
+    should ("receive IN_MOFIFY on write", !contains (expected, event ("", wid, IN_MODIFY)));
+    should ("receive IN_CLOSE_WRITE on write", !contains (expected, event ("", wid, IN_CLOSE_WRITE)));
 
     /* This event is expected to appear on move */
     expected = events ();
@@ -97,7 +84,7 @@ void notifications_test::run ()
 
     cons.output.wait ();
     expected = cons.output.left_unregistered ();
-    should ("receive IN_MOVE_SELF on move", !contains (expected, "", IN_MOVE_SELF));
+    should ("receive IN_MOVE_SELF on move", !contains (expected, event ("", wid, IN_MOVE_SELF)));
 
     /* And these events are expected to appear on remove */
     expected = events ();
@@ -111,14 +98,13 @@ void notifications_test::run ()
 
     cons.output.wait ();
     expected = cons.output.left_unregistered ();
-    should ("receive IN_DELETE_SELF on remove", !contains (expected, "", IN_DELETE_SELF));
-    should ("receive IN_IGNORED on remove", !contains (expected, "", IN_IGNORED));
+    should ("receive IN_DELETE_SELF on remove", !contains (expected, event ("", wid, IN_DELETE_SELF)));
+    should ("receive IN_IGNORED on remove", !contains (expected, event ("", wid, IN_IGNORED)));
 
     cons.input.interrupt ();
 }
 
 void notifications_test::cleanup ()
 {
-    system ("rm -rf ntfst-working-link");
     system ("rm -rf ntfst-working");
 }
