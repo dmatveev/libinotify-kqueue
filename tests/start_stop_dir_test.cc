@@ -86,7 +86,7 @@ void start_stop_dir_test::run ()
 
     cons.output.wait ();
     received = cons.output.registered ();
-    should ("items on a stopped watch are unregistered", received.size () == 0);
+    should ("items on a stopped watch are unregistered", received.empty ());
 
     /* Now resume watching */
     cons.output.reset ();

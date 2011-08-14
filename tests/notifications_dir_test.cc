@@ -152,7 +152,7 @@ void notifications_dir_test::run ()
     received = cons.output.registered ();
     should ("receive IN_OPEN event on modifying an entry in a directory",
             contains (received, event ("one", wid, IN_OPEN)));
-    should ("receive IN_ATTRIB event on modifying an entry in a directory",
+    should ("receive IN_MODIFY event on modifying an entry in a directory",
             contains (received, event ("one", wid, IN_MODIFY)));
     should ("receive IN_CLOSE_WRITE event on modifying an entry in a directory",
             contains (received, event ("one", wid, IN_CLOSE_WRITE)));
@@ -165,7 +165,7 @@ void notifications_dir_test::run ()
 
     cons.output.wait ();
     received = cons.output.registered ();
-    should ("receive a move events",
+    should ("receive a move event",
             contains (received, event ("", wid, IN_MOVE_SELF)));
 
 
@@ -179,7 +179,7 @@ void notifications_dir_test::run ()
     should ("receive IN_OPEN on removing a directory",
             contains (received, event ("", wid, IN_OPEN)));
     should ("receive IN_DELETE for a file in a directory on removing a directory",
-            contains (received, event ("one", wid, IN_OPEN)));
+            contains (received, event ("one", wid, IN_DELETE)));
     should ("receive IN_CLOSE_WRITE on removing a directory",
             contains (received, event ("", wid, IN_CLOSE_WRITE)));
     should ("receive IN_DELETE_SELF on removing a directory",
