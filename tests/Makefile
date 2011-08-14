@@ -40,6 +40,7 @@ TEST_OBJS=\
 	notifications_test.o \
 	notifications_dir_test.o \
 	update_flags_test.o \
+	update_flags_dir_test.o \
 	tests.o
 
 tests-app: $(TEST_OBJS) $(CORE_OBJS)
