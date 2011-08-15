@@ -107,7 +107,7 @@ void notifications_dir_test::run ()
         should ("both events for a rename have the same cookie",
                 iter_from->cookie == iter_to->cookie);
     }
-#esle
+#else
     /* A simplier and less strict version */
     cons.output.reset ();
     cons.input.receive ();
@@ -115,13 +115,12 @@ void notifications_dir_test::run ()
     system ("mv ntfsdt-working/1 ntfsdt-working/one");
 
     cons.output.wait ();
-    received = cons.output.left_unregistered ();
+    received = cons.output.registered ();
     should ("receive all events on moves",
-            contains (events, event ("1", wid, IN_MOVED_FROM))
-            && contains (events, event ("one", wid, IN_MOVED_TO)));
+            contains (received, event ("1", wid, IN_MOVED_FROM))
+            && contains (received, event ("one", wid, IN_MOVED_TO)));
 #endif
 
-    
     cons.output.reset ();
     cons.input.receive ();
 
