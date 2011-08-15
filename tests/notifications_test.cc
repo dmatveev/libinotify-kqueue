@@ -24,7 +24,8 @@ void notifications_test::run ()
     int wid = 0;
 
 
-    cons.input.setup ("ntfst-working", IN_ALL_EVENTS);
+    cons.input.setup ("ntfst-working",
+                      IN_ATTRIB | IN_MODIFY | IN_MOVE_SELF | IN_DELETE_SELF);
     cons.output.wait ();
 
     wid = cons.output.added_watch_id ();
@@ -38,20 +39,18 @@ void notifications_test::run ()
 
     cons.output.wait ();
     received = cons.output.registered ();
-    should ("receive IN_OPEN on touch", contains (received, event ("", wid, IN_OPEN)));
     should ("receive IN_ATTRIB on touch", contains (received, event ("", wid, IN_ATTRIB)));
-    should ("receive IN_CLOSE_WRITE on touch", contains (received, event ("", wid, IN_CLOSE_WRITE)));
 
 
-    cons.output.reset ();
-    cons.input.receive ();
+    // cons.output.reset ();
+    // cons.input.receive ();
 
-    system ("cat ntfst-working > /dev/null");
+    // system ("cat ntfst-working > /dev/null");
 
-    cons.output.wait ();
-    received = cons.output.registered ();
-    should ("receive IN_OPEN on read", contains (received, event ("", wid, IN_OPEN)));
-    should ("receive IN_CLOSE_NOWRITE on read", contains (received, event ("", wid, IN_CLOSE_NOWRITE)));
+    // cons.output.wait ();
+    // received = cons.output.registered ();
+    // should ("receive IN_OPEN on read", contains (received, event ("", wid, IN_OPEN)));
+    // should ("receive IN_CLOSE_NOWRITE on read", contains (received, event ("", wid, IN_CLOSE_NOWRITE)));
 
 
     cons.output.reset ();
@@ -61,9 +60,7 @@ void notifications_test::run ()
 
     cons.output.wait ();
     received = cons.output.registered ();
-    should ("receive IN_OPEN on write", contains (received, event ("", wid, IN_OPEN)));
     should ("receive IN_MOFIFY on write", contains (received, event ("", wid, IN_MODIFY)));
-    should ("receive IN_CLOSE_WRITE on write", contains (received, event ("", wid, IN_CLOSE_WRITE)));
 
 
     cons.output.reset ();

@@ -29,7 +29,11 @@ void notifications_dir_test::run ()
     int wid = 0;
 
     /* Add a watch */
-    cons.input.setup ("ntfsdt-working", IN_ALL_EVENTS);
+    cons.input.setup ("ntfsdt-working",
+                      IN_ATTRIB | IN_MODIFY
+                      | IN_CREATE | IN_DELETE
+                      | IN_MOVED_FROM | IN_MOVED_TO
+                      | IN_MOVE_SELF | IN_DELETE_SELF);
     cons.output.wait ();
 
     wid = cons.output.added_watch_id ();
@@ -50,31 +54,12 @@ void notifications_dir_test::run ()
     cons.output.reset ();
     cons.input.receive ();
 
-    system ("ls ntfsdt-working > /dev/null");
-
-    cons.output.wait ();
-    received = cons.output.registered ();
-    should ("receive IN_OPEN with IN_ISDIR flag set on listing on a directory",
-            contains (received, event ("", wid, IN_OPEN | IN_ISDIR)));
-    should ("receive IN_CLOSE_NOWRITE with IN_ISDIR flag set on listing on a directory",
-            contains (received, event ("", wid, IN_CLOSE_NOWRITE | IN_ISDIR)));
-
-
-    cons.output.reset ();
-    cons.input.receive ();
-
     system ("touch ntfsdt-working/1");
 
     cons.output.wait ();
     received = cons.output.registered ();
     should ("receive IN_CREATE event for a new entry in a directory (created with touch)",
             contains (received, event ("1", wid, IN_CREATE)));
-    should ("receive IN_OPEN event for a new entry in a directory (created with touch)",
-            contains (received, event ("1", wid, IN_OPEN)));
-    should ("receive IN_ATTRIB event for a new entry in a directory (created with touch)",
-            contains (received, event ("1", wid, IN_ATTRIB)));
-    should ("receive IN_CLOSE_WRITE event for a new entry in a directory (created with touch)",
-            contains (received, event ("1", wid, IN_CLOSE_WRITE)));
 
 
     cons.output.reset ();
@@ -86,12 +71,6 @@ void notifications_dir_test::run ()
     received = cons.output.registered ();
     should ("receive IN_CREATE event for a new entry in a directory (created with echo)",
             contains (received, event ("2", wid, IN_CREATE)));
-    should ("receive IN_OPEN event for a new entry in a directory (created with echo)",
-            contains (received, event ("2", wid, IN_OPEN)));
-    should ("receive IN_MODIFY event for a new entry in a directory (created with echo)",
-            contains (received, event ("2", wid, IN_MODIFY)));
-    should ("receive IN_CLOSE_WRITE event for a new entry in a directory (created with echo)",
-            contains (received, event ("2", wid, IN_CLOSE_WRITE)));
 
 
     cons.output.reset ();
@@ -104,9 +83,9 @@ void notifications_dir_test::run ()
     should ("receive IN_DELETE event on deleting a file from a directory",
             contains (received, event ("2", wid, IN_DELETE)));
 
+    
 #ifdef TESTS_MOVES_TRICKY
-    /* And tricky test case to test renames in a directory.
-     */
+    /* And tricky test case to test renames in a directory. */
     cons.output.reset ();
     cons.input.receive (5);
 
@@ -150,12 +129,8 @@ void notifications_dir_test::run ()
 
     cons.output.wait ();
     received = cons.output.registered ();
-    should ("receive IN_OPEN event on modifying an entry in a directory",
-            contains (received, event ("one", wid, IN_OPEN)));
     should ("receive IN_MODIFY event on modifying an entry in a directory",
             contains (received, event ("one", wid, IN_MODIFY)));
-    should ("receive IN_CLOSE_WRITE event on modifying an entry in a directory",
-            contains (received, event ("one", wid, IN_CLOSE_WRITE)));
     
 
     cons.output.reset ();
@@ -176,12 +151,8 @@ void notifications_dir_test::run ()
 
     cons.output.wait ();
     received = cons.output.registered ();
-    should ("receive IN_OPEN on removing a directory",
-            contains (received, event ("", wid, IN_OPEN)));
     should ("receive IN_DELETE for a file in a directory on removing a directory",
             contains (received, event ("one", wid, IN_DELETE)));
-    should ("receive IN_CLOSE_WRITE on removing a directory",
-            contains (received, event ("", wid, IN_CLOSE_WRITE)));
     should ("receive IN_DELETE_SELF on removing a directory",
             contains (received, event ("", wid, IN_DELETE_SELF)));
     should ("receive IN_IGNORED on removing a directory",
