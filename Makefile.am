@@ -1,7 +1,8 @@
 ############################################################
 #	The library
-#------------------------------------------------------------
+#-----------------------------------------------------------
 
+if BUILD_LIBRARY
 lib_LTLIBRARIES = libinotify.la
 
 libinotify_la_SOURCES = \
@@ -15,11 +16,11 @@ libinotify_la_SOURCES = \
 	controller.c
 
 libinotify_la_LDFLAGS = -lpthread
-
+endif
 
 ############################################################
 #	Test suite
-#------------------------------------------------------------
+#-----------------------------------------------------------
 
 EXTRA_PROGRAMS = check_libinotify
 
@@ -49,6 +50,14 @@ check_libinotify_SOURCES = \
 	tests/open_close_test.cc \
 	tests/tests.cc
 
+if LINUX
+check_libinotify_CXXFLAGS = -std=c++0x
+endif
+
+check_libinotify_LDFLAGS = -lpthread
+
+if BUILD_LIBRARY
 check_libinotify_LDADD = libinotify.la
+endif
 
 noinst_programs = check_libinotify
