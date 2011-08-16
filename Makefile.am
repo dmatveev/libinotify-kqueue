@@ -21,7 +21,13 @@ libinotify_la_LDFLAGS = -lpthread
 #	Test suite
 #------------------------------------------------------------
 
-check_PROGRAMS = check_libinotify
+EXTRA_PROGRAMS = check_libinotify
+
+test: check_libinotify
+	@echo Running test suite...
+	@./check_libinotify
+
+.PHONY: test
 
 check_libinotify_SOURCES = \
 	tests/core/log.cc \

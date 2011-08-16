@@ -74,10 +74,10 @@ create_inotify_event (int wd, uint32_t mask, uint32_t cookie, const char *name, 
 }
 
 int
-produce_directory_moves (watch          *w,
-                         dep_list      **was, // TODO: removed
-                         dep_list      **now, // TODO: added
-                         bulk_events    *be)
+produce_directory_moves (watch        *w,
+                         dep_list    **was, // TODO: removed
+                         dep_list    **now, // TODO: added
+                         bulk_events  *be)
 {
     assert (w != NULL);
     assert (was != NULL);
@@ -101,13 +101,13 @@ produce_directory_moves (watch          *w,
                 struct inotify_event *ev;
 
                 // TODO: write directly on bulk events
-                ev = create_inotify_event (w->parent->fd, IN_MOVED_FROM, cookie,
+                ev = create_inotify_event (w->fd, IN_MOVED_FROM, cookie,
                                            was_iter->path,
                                            &event_len);
                 bulk_write (be, ev, event_len);
                 free (ev);
 
-                ev = create_inotify_event (w->parent->fd, IN_MOVED_TO, cookie,
+                ev = create_inotify_event (w->fd, IN_MOVED_TO, cookie,
                                            now_iter->path,
                                            &event_len);
                 bulk_write (be, ev, event_len);

@@ -27,18 +27,7 @@ void* consumer::run_ (void *ptr)
 
 void consumer::register_activity (request::activity activity)
 {
-    time_t start = time (NULL);
-    time_t elapsed = 0;
-
-    events received;
-
-    while ((elapsed = time (NULL) - start) < activity.timeout) {
-        event ev;
-        if (ino.get_next_event (ev, activity.timeout)) {
-            received.insert (ev);
-        }
-    }
-
+    events received = ino.receive_during (activity.timeout);
     LOG ("CONS: Okay, informing producer about results...");
     input.reset ();
     output.setup (received);

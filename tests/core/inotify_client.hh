@@ -12,7 +12,9 @@ public:
     ~inotify_client ();
     int watch (const std::string &filename, uint32_t flags);
     void cancel (int wid);
-    bool get_next_event (event &ev, int timeout) const;
+    events receive_during (int timeout) const;
+
+    static long bytes_available (int fd);
 };
 
 #endif // __INOTIFY_CLIENT_HH__
