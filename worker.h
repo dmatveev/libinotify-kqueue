@@ -44,6 +44,7 @@ typedef struct {
     int io[2];             /* a socket pair */
     pthread_t thread;      /* worker thread */
     worker_sets sets;      /* kqueue events, filenames, etc */
+    volatile int closed;   /* closed flag */
 
     pthread_mutex_t mutex; /* worker mutex */
     worker_cmd cmd;        /* operation to perform on a worker */

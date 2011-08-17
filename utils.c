@@ -27,6 +27,9 @@ path_concat (const char *dir, const char *file)
 
 
 #define SAFE_GENERIC_OP(fcn, fd, data, size)    \
+    if (fd == -1) {                             \
+        return -1;                              \
+    }                                           \
     while (size > 0) {                          \
         ssize_t retval = fcn (fd, data, size);  \
         if (retval == -1) {                     \

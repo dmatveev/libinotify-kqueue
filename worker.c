@@ -98,6 +98,8 @@ worker_create ()
         goto failure;
     }
 
+    wrk->closed = 0;
+
     return wrk;
     
     failure:
@@ -112,9 +114,13 @@ void
 worker_free (worker *wrk)
 {
     assert (wrk != NULL);
+    close (wrk->io[KQUEUE_FD]);
+    wrk->io[KQUEUE_FD] = -1;
 
+    close (wrk->kq);
+    wrk->closed = 1;
+    worker_cmd_reset (&wrk->cmd);
     worker_sets_free (&wrk->sets);
-    free (wrk);
 }
 
 static int
@@ -172,13 +178,11 @@ worker_start_watching (worker      *wrk,
                     flags,
                     i)
         == -1) {
-        perror ("Failed to initialize a user watch\n");
-        // TODO: error
+        watch_free (wrk->sets.watches[i]);
+        wrk->sets.watches[i] = NULL;
         return NULL;
     }
     ++wrk->sets.length;
-
-    printf ("Starting watching on %s, index %d\n", path, i);
 
     if (type == WATCH_USER && wrk->sets.watches[i]->is_directory) {
         worker_add_dependencies (wrk, &wrk->sets.events[i], wrk->sets.watches[i]);
@@ -246,8 +250,6 @@ worker_update_flags (worker *wrk, watch *w, uint32_t flags)
 {
     assert (w != NULL);
     assert (w->event != NULL);
-
-    printf ("Updating flags!\n");
 
     w->flags = flags;
     w->event->fflags = inotify_to_kqueue (flags, w->is_directory);
@@ -327,6 +329,10 @@ worker_remove_many (worker *wrk, watch *parent, dep_list *items, int remove_self
     }
 
     wrk->sets.length -= (i - j);
+
+    for (i = wrk->sets.length; i < wrk->sets.allocated; i++) {
+        wrk->sets.watches[i] = NULL;
+    }
 
     // TODO: who will free items?
     // TODO: possible memory corruption here?

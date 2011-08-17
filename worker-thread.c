@@ -5,6 +5,7 @@
 #include <stdlib.h> /* calloc, realloc */
 #include <stdio.h>  /* perror */
 #include <string.h> /* memset */
+#include <errno.h>
 
 #include "utils.h"
 #include "conversions.h"
@@ -229,16 +230,12 @@ produce_notifications (worker *wrk, struct kevent *event)
 
     watch *w = wrk->sets.watches[event->udata];
 
-    printf ("kevent %d: %s [%s]\n",
-            event->udata,
-            w->filename,
-            (event->fflags & NOTE_DELETE ? "YAY!!!" : "-"));
-
     if (w->type == WATCH_USER) {
         uint32_t flags = event->fflags;
 
         if (w->is_directory
-            && (flags & (NOTE_WRITE | NOTE_EXTEND))) {
+            && (flags & (NOTE_WRITE | NOTE_EXTEND))
+            && (w->flags & (IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO))) {
             produce_directory_diff (wrk, w, event);
             flags &= ~(NOTE_WRITE | NOTE_EXTEND);
         }
@@ -296,7 +293,20 @@ worker_thread (void *arg)
         }
 
         if (received.ident == wrk->io[KQUEUE_FD]) {
-            process_command (wrk);
+            if (received.flags & EV_EOF) {
+                worker_erase (wrk);
+
+                if (pthread_mutex_trylock (&wrk->mutex) == EBUSY) {
+                    wrk->closed = 1;
+                } else {
+                    worker_free (wrk);
+                    pthread_mutex_unlock (&wrk->mutex);
+                    free (wrk);
+                }
+                return NULL;
+            } else {
+                process_command (wrk);
+            }
         } else {
             produce_notifications (wrk, &received);
         }

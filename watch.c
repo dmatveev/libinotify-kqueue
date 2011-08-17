@@ -91,6 +91,9 @@ watch_free (watch *w)
 {
     assert (w != NULL);
     close (w->fd); /* TODO: EINTR? */
+    if (w->type == WATCH_USER && w->is_directory && w->deps) {
+        dl_free (w->deps);
+    }
     free (w->filename);
     free (w);
 }

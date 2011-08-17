@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "start_stop_test.hh"
 #include "start_stop_dir_test.hh"
 #include "notifications_test.hh"

@@ -67,7 +67,7 @@ struct inotify_event
 INO_EXPORT int inotify_init (void) __THROW;
 
 /* Create and initialize inotify-kqueue instance. */
-INO_EXPORT int inotify_init1 (int flags) __THROW;
+/* INO_EXPORT int inotify_init1 (int flags) __THROW; */
 
 /* Add watch of object NAME to inotify-kqueue instance FD. Notify about
    events specified by MASK. */

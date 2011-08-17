@@ -44,6 +44,7 @@ worker_sets_extend (worker_sets *ws,
         // TODO: check realloc fails
         ws->events = realloc (ws->events, sizeof (struct kevent) * ws->allocated);
         ws->watches = realloc (ws->watches, sizeof (struct watch *) * ws->allocated);
+        ws->watches[0] = NULL;
     }
     return 0;
 }
@@ -52,13 +53,17 @@ void
 worker_sets_free (worker_sets *ws)
 {
     assert (ws != NULL);
+    assert (ws->events != NULL);
+    assert (ws->watches != NULL);
 
-    /* int i; */
-    /* for (i = 0; i < ws->allocated; i++) { */
-    /*     free (ws->filenames[i]); */
-    /* } */
-    /* free (ws->is_user); */
-    /* free (ws->is_directory); */
-    /* free (ws->events); */
-    /* free (ws); */
+    int i;
+    for (i = 0; i < ws->length; i++) {
+        if (ws->watches[i] != NULL) {
+            watch_free (ws->watches[i]);
+        }
+    }
+
+    free (ws->events);
+    free (ws->watches);
+    memset (ws, 0, sizeof (worker_sets));
 }

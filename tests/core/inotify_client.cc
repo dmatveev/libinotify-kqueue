@@ -13,7 +13,7 @@ inotify_client::inotify_client ()
 
 inotify_client::~inotify_client ()
 {
-    // close (fd);
+    close (fd);
 }
 
 int inotify_client::watch (const std::string &filename, uint32_t flags)
