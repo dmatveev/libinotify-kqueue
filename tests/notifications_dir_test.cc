@@ -152,7 +152,7 @@ void notifications_dir_test::run ()
 
     cons.output.wait ();
     received = cons.output.registered ();
-    should ("reveice all move events when replaced a file in a directory "
+    should ("receive all move events when replaced a file in a directory "
             "with another file from this directory",
             contains (received, event ("foo", wid, IN_MOVED_FROM))
             && contains (received, event ("bar", wid, IN_MOVED_TO)));
@@ -181,7 +181,7 @@ void notifications_dir_test::run ()
      */
     cons.output.wait ();
     received = cons.output.registered ();
-    should ("reveice events when overwriting a file in a directory"
+    should ("receive events when overwriting a file in a directory"
             " with an external file",
             (contains (received, event ("bar", wid, IN_DELETE))
              && contains (received, event ("bar", wid, IN_CREATE)))
