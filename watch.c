@@ -7,7 +7,7 @@
 
 #include "conversions.h"
 #include "watch.h"
-#include "inotify.h"
+#include "sys/inotify.h"
 
 static void
 _file_information (int fd, int *is_dir, ino_t *inode)

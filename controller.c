@@ -7,9 +7,10 @@
 #include <stdio.h> /* printf */
 #include <errno.h>
 
-#include "worker.h"
+#include "sys/inotify.h"
+
 #include "utils.h"
-#include "inotify.h"
+#include "worker.h"
 
 
 #define WORKER_SZ 100

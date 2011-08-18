@@ -5,6 +5,8 @@
 if BUILD_LIBRARY
 lib_LTLIBRARIES = libinotify.la
 
+nobase_include_HEADERS = sys/inotify.h
+
 libinotify_la_SOURCES = \
 	utils.c \
 	conversions.c \
@@ -15,6 +17,7 @@ libinotify_la_SOURCES = \
 	worker.c \
 	controller.c
 
+libinotify_la_CFLAGS = -I.
 libinotify_la_LDFLAGS = -lpthread
 endif
 
@@ -50,14 +53,16 @@ check_libinotify_SOURCES = \
 	tests/open_close_test.cc \
 	tests/tests.cc
 
+
 if LINUX
 check_libinotify_CXXFLAGS = -std=c++0x
 endif
 
-check_libinotify_LDFLAGS = -lpthread
-
 if BUILD_LIBRARY
 check_libinotify_LDADD = libinotify.la
 endif
+
+check_libinotify_LDFLAGS = -lpthread
+
 
 noinst_programs = check_libinotify

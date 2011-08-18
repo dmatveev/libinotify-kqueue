@@ -1,6 +1,6 @@
 #include <sys/event.h>
 
-#include "inotify.h"
+#include "sys/inotify.h"
 #include "conversions.h"
 
 /* It is just a shortctut */

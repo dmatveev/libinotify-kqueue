@@ -7,7 +7,7 @@
 #include <dirent.h> /* opendir, readdir, closedir */
 #include <sys/event.h>
 
-#include "inotify.h"
+#include "sys/inotify.h"
 #include "worker-sets.h"
 
 

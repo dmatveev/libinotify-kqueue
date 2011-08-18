@@ -8,7 +8,8 @@
 #include <stdio.h>
 #include <dirent.h>
 
-#include "inotify.h"
+#include "sys/inotify.h"
+
 #include "utils.h"
 #include "conversions.h"
 #include "worker-thread.h"

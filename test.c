@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <errno.h>
 
-#include "inotify.h"
+#include <sys/inotify.h>
 
 void get_event (int fd, const char * target);
 void handle_error (int error);

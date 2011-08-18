@@ -7,9 +7,10 @@
 #include <string.h> /* memset */
 #include <errno.h>
 
+#include "sys/inotify.h"
+
 #include "utils.h"
 #include "conversions.h"
-#include "inotify.h"
 #include "worker.h"
 #include "worker-sets.h"
 #include "worker-thread.h"

@@ -8,7 +8,7 @@
 #  include <sys/inotify.h>
 #  include <cstdint> // uint32_t, requires -std=c++0x
 #elif defined (__NetBSD__)
-#  include "inotify.h"
+#  include "sys/inotify.h"
 #  include <stdint.h>
 #else
 #  error Currently unsupported
