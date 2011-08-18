@@ -233,10 +233,17 @@ worker_remove (worker *wrk,
     int i;
     for (i = 1; i < wrk->sets.length; i++) {
         if (wrk->sets.events[i].ident == id) {
+            int ie_len = 0;
+            struct inotify_event *ie;
+            ie = create_inotify_event (id, IN_IGNORED, 0, "", &ie_len);
+
             worker_remove_many (wrk,
                                 wrk->sets.watches[i],
                                 wrk->sets.watches[i]->deps,
                                 1);
+
+            safe_write (wrk->io[KQUEUE_FD], ie, ie_len);
+            free (ie);
             break;
         }
     }

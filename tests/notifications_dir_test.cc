@@ -153,7 +153,7 @@ void notifications_dir_test::run ()
     cons.output.wait ();
     received = cons.output.registered ();
     should ("receive all move events when replaced a file in a directory "
-            "with another file from this directory",
+            "with another file from the same directory",
             contains (received, event ("foo", wid, IN_MOVED_FROM))
             && contains (received, event ("bar", wid, IN_MOVED_TO)));
 

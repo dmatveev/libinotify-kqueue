@@ -55,26 +55,6 @@ process_command (worker *wrk)
 }
 
 
-static struct inotify_event*
-create_inotify_event (int wd, uint32_t mask, uint32_t cookie, const char *name, int *event_len)
-{
-    struct inotify_event *event = NULL;
-    int name_len = name ? strlen (name) + 1 : 0;
-    *event_len = sizeof (struct inotify_event) + name_len;
-    event = calloc (1, *event_len); // TODO: check allocation
-
-    event->wd = wd;
-    event->mask = mask;
-    event->cookie = cookie;
-    event->len = name_len;
-
-    if (name) {
-        strcpy (event->name, name);
-    }
-
-    return event;
-}
-
 int
 produce_directory_moves (watch        *w,
                          dep_list    **was, // TODO: removed
@@ -252,6 +232,13 @@ produce_notifications (worker *wrk, struct kevent *event)
 
             safe_write (wrk->io[KQUEUE_FD], ie, ev_len);
             free (ie);
+
+            if ((flags & NOTE_DELETE) && w->flags & IN_DELETE_SELF) {
+                /* TODO: really look on IN_DETELE_SELF? */
+                ie = create_inotify_event (w->fd, IN_IGNORED, 0, NULL, &ev_len);
+                safe_write (wrk->io[KQUEUE_FD], ie, ev_len);
+                free (ie);
+            }
         }
     } else {
         /* for dependency events, ignore some notifications */

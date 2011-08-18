@@ -53,6 +53,9 @@ struct inotify_event
 #define IN_DELETE_SELF   0x00000400 /* Self was deleted.  */
 #define IN_MOVE_SELF     0x00000800 /* Self was moved.  */
 
+/* Additional events */
+#define IN_IGNORED       0x00008000
+
 /*
  * All of the events - we build the list by hand so that we can add flags in
  * the future and not break backward compatibility.  Apps will get only the

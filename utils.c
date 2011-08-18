@@ -3,6 +3,7 @@
 #include <stdlib.h> /* malloc */
 #include <string.h> /* strlen */
 
+#include "sys/inotify.h"
 #include "utils.h"
 
 char*
@@ -23,6 +24,30 @@ path_concat (const char *dir, const char *file)
     strcpy (path + dir_len, file);
 
     return path;
+}
+
+struct inotify_event*
+create_inotify_event (int         wd,
+                      uint32_t    mask,
+                      uint32_t    cookie,
+                      const char *name,
+                      int        *event_len)
+{
+    struct inotify_event *event = NULL;
+    int name_len = name ? strlen (name) + 1 : 0;
+    *event_len = sizeof (struct inotify_event) + name_len;
+    event = calloc (1, *event_len); // TODO: check allocation
+
+    event->wd = wd;
+    event->mask = mask;
+    event->cookie = cookie;
+    event->len = name_len;
+
+    if (name) {
+        strcpy (event->name, name);
+    }
+
+    return event;
 }
 
 
