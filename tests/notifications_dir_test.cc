@@ -19,13 +19,20 @@ notifications_dir_test::notifications_dir_test (journal &j)
 void notifications_dir_test::setup ()
 {
     cleanup ();
+
     system ("mkdir ntfsdt-working");
+    system ("touch ntfsdt-working/foo");
+    system ("touch ntfsdt-working/bar");
+
+    system ("mkdir ntfsdt-cache");
+    system ("touch ntfsdt-cache/bar");
 }
 
 void notifications_dir_test::run ()
 {
     consumer cons;
     events received;
+    events::iterator iter;
     int wid = 0;
 
     /* Add a watch */
@@ -47,8 +54,14 @@ void notifications_dir_test::run ()
 
     cons.output.wait ();
     received = cons.output.registered ();
-    should ("receive IN_ATTRIB with IN_ISDIR flag set on touch on a directory",
-            contains (received, event ("", wid, IN_ATTRIB | IN_ISDIR)));
+
+    iter = std::find_if (received.begin(),
+                         received.end(),
+                         event_matcher (event ("", wid, IN_ATTRIB | IN_ISDIR)));
+    should ("receive IN_ATTRIB event on touch on a directory",
+            iter != received.end() && iter->flags & IN_ATTRIB);
+    should ("the touch event for a directory contains IN_ISDIR in the flags",
+            iter != received.end() && iter->flags & IN_ISDIR);
 
 
     cons.output.reset ();
@@ -130,6 +143,61 @@ void notifications_dir_test::run ()
     received = cons.output.registered ();
     should ("receive IN_MODIFY event on modifying an entry in a directory",
             contains (received, event ("one", wid, IN_MODIFY)));
+
+
+    cons.output.reset ();
+    cons.input.receive ();
+
+    system ("mv ntfsdt-working/foo ntfsdt-working/bar");
+
+    cons.output.wait ();
+    received = cons.output.registered ();
+    should ("reveice all move events when replaced a file in a directory "
+            "with another file from this directory",
+            contains (received, event ("foo", wid, IN_MOVED_FROM))
+            && contains (received, event ("bar", wid, IN_MOVED_TO)));
+
+
+    cons.output.reset ();
+    cons.input.receive ();
+
+    system ("touch ntfsdt-working/bar");
+
+    cons.output.wait ();
+    received = cons.output.registered ();
+    should ("receive events from a file, which has replaced a file in a directory",
+            contains (received, event ("bar", wid, IN_ATTRIB)));
+
+
+    cons.output.reset ();
+    cons.input.receive ();
+
+    system ("mv ntfsdt-cache/bar ntfsdt-working/bar");
+
+    /* Interesting test case here.
+     * Looks like inotify sends IN_MOVED_TO when overwriting a file with a file from
+     * the same partition/fs, and sends a pair of IN_DELETE/IN_CREATE when overwriting
+     * a file from a different partition/fs.
+     */
+    cons.output.wait ();
+    received = cons.output.registered ();
+    should ("reveice events when overwriting a file in a directory"
+            " with an external file",
+            (contains (received, event ("bar", wid, IN_DELETE))
+             && contains (received, event ("bar", wid, IN_CREATE)))
+            || (contains (received, event ("bar", wid, IN_MOVED_TO))));
+
+
+    cons.output.reset ();
+    cons.input.receive ();
+
+    system ("touch ntfsdt-working/bar");
+
+    cons.output.wait ();
+    received = cons.output.registered ();
+    should ("receive events from a file, which has overwritten a file in a directory",
+            contains (received, event ("bar", wid, IN_ATTRIB)));
+
     
 
     cons.output.reset ();
@@ -150,8 +218,10 @@ void notifications_dir_test::run ()
 
     cons.output.wait ();
     received = cons.output.registered ();
-    should ("receive IN_DELETE for a file in a directory on removing a directory",
+    should ("receive IN_DELETE for a file \'one\' in a directory on removing a directory",
             contains (received, event ("one", wid, IN_DELETE)));
+    should ("receive IN_DELETE for a file \'bar\' in a directory on removing a directory",
+            contains (received, event ("bar", wid, IN_DELETE)));
     should ("receive IN_DELETE_SELF on removing a directory",
             contains (received, event ("", wid, IN_DELETE_SELF)));
     should ("receive IN_IGNORED on removing a directory",
@@ -164,4 +234,5 @@ void notifications_dir_test::cleanup ()
 {
     system ("rm -rf ntfsdt-working-2");
     system ("rm -rf ntfsdt-working");
+    system ("rm -rf ntfsdt-cache");
 }
