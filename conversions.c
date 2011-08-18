@@ -50,5 +50,10 @@ kqueue_to_inotify (uint32_t flags, int is_directory)
     if (flags & NOTE_RENAME)
         result |= IN_MOVE_SELF;
 
+    if ((result & (IN_ATTRIB | IN_OPEN | IN_CLOSE_WRITE | IN_CLOSE_NOWRITE))
+        && is_directory) {
+        result |= IN_ISDIR;
+    }
+
     return result;
 }
