@@ -90,7 +90,9 @@ worker_create ()
         goto failure;
     }
 
-    worker_sets_init (&wrk->sets, wrk->io[KQUEUE_FD]);
+    if (worker_sets_init (&wrk->sets, wrk->io[KQUEUE_FD]) == -1) {
+        goto failure;
+    }
     pthread_mutex_init (&wrk->mutex, NULL);
 
     /* create a run a worker thread */
@@ -139,18 +141,22 @@ worker_add_dependencies (worker        *wrk,
     {   dep_list *iter = parent->deps;
         while (iter != NULL) {
             char *path = path_concat (parent->filename, iter->path);
-            watch *neww = worker_start_watching (wrk,
-                                                 path,
-                                                 iter->path,
-                                                 parent->flags,
-                                                 WATCH_DEPENDENCY);
-            if (neww == NULL) {
-                perror ("Failed to start watching a dependency\n");
-                /* TODO ? */
+            if (path != NULL) {
+                watch *neww = worker_start_watching (wrk,
+                                                     path,
+                                                     iter->path,
+                                                     parent->flags,
+                                                     WATCH_DEPENDENCY);
+                if (neww == NULL) {
+                    perror ("Failed to start watching a dependency\n");
+                } else {
+                    neww->parent = parent;
+                }
+                free (path);
+            } else {
+                perror ("Failed to allocate a path while adding a dependency");
             }
-            neww->parent = parent;
             iter = iter->next;
-            free (path);
         }
     }
     return 0;
@@ -168,7 +174,11 @@ worker_start_watching (worker      *wrk,
 
     int i;
 
-    worker_sets_extend (&wrk->sets, 1);
+    if (worker_sets_extend (&wrk->sets, 1) == -1) {
+        perror ("Failed to extend worker sets");
+        return NULL;
+    }
+
     i = wrk->sets.length;
     wrk->sets.watches[i] = calloc (1, sizeof (struct watch));
     if (watch_init (wrk->sets.watches[i],
@@ -217,8 +227,8 @@ worker_add_or_modify (worker     *wrk,
         }
     }
 
-    // add a new entry if path is not found
-    watch *w = worker_start_watching (wrk, path, NULL, flags, WATCH_USER); // TODO: magic number
+    /* add a new entry if path is not found */
+    watch *w = worker_start_watching (wrk, path, NULL, flags, WATCH_USER);
     return (w != NULL) ? w->fd : -1;
 }
 
@@ -242,8 +252,12 @@ worker_remove (worker *wrk,
                                 wrk->sets.watches[i]->deps,
                                 1);
 
-            safe_write (wrk->io[KQUEUE_FD], ie, ie_len);
-            free (ie);
+            if (ie != NULL) {
+                safe_write (wrk->io[KQUEUE_FD], ie, ie_len);
+                free (ie);
+            } else {
+                perror ("Failed to create an IN_IGNORED event on stopping a watch");
+            }
             break;
         }
     }

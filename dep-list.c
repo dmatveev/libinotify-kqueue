@@ -23,7 +23,12 @@ dl_shallow_copy (dep_list *dl)
         return NULL;
     }
 
-    dep_list *head = calloc (1, sizeof (dep_list)); // TODO: check allocation
+    dep_list *head = calloc (1, sizeof (dep_list));
+    if (head == NULL) {
+        perror ("Failed to allocate head during shallow copy");
+        return NULL;
+    }
+
     dep_list *cp = head;
     dep_list *it = dl;
 
@@ -31,7 +36,12 @@ dl_shallow_copy (dep_list *dl)
         cp->path = it->path;
         cp->inode = it->inode;
         if (it->next) {
-            cp->next = calloc (1, sizeof (dep_list)); // TODO: check allocation
+            cp->next = calloc (1, sizeof (dep_list));
+            if (cp->next == NULL) {
+                perror ("Failed to allocate a new element during shallow copy");
+                dl_shallow_free (head);
+                return NULL;
+            }
             cp = cp->next;
         }
         it = it->next;
@@ -78,13 +88,26 @@ dl_listing (const char *path)
                 continue;
             }
 
-            // TODO: check allocation
             if (head == NULL) {
-                head = calloc (1, sizeof (dep_list)); // TODO: check allocation
+                head = calloc (1, sizeof (dep_list));
+                if (head == NULL) {
+                    perror ("Failed to allocate head during listing");
+                    goto error;
+                }
             }
 
             dep_list *iter = (prev == NULL) ? head : calloc (1, sizeof (dep_list));
+            if (iter == NULL) {
+                perror ("Failed to allocate a new element during listing");
+                goto error;
+            }
+
             iter->path = strdup (ent->d_name);
+            if (iter->path == NULL) {
+                perror ("Failed to copy a string during listing");
+                goto error;
+            }
+
             iter->inode = ent->d_ino;
             iter->next = NULL;
             if (prev) {
@@ -96,6 +119,13 @@ dl_listing (const char *path)
         closedir (dir);
     }
     return head;
+
+error:
+    if (dir != NULL) {
+        closedir (dir);
+    }
+    dl_free (head);
+    return NULL;
 }
 
 void dl_diff (dep_list **before, dep_list **after)

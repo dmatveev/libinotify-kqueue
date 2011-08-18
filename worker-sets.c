@@ -13,14 +13,17 @@
 
 #define WS_RESERVED 10
 
-void
+int
 worker_sets_init (worker_sets *ws,
                   int          fd)
 {
     assert (ws != NULL);
 
     memset (ws, 0, sizeof (worker_sets));
-    worker_sets_extend (ws, 1);
+    if (worker_sets_extend (ws, 1) == -1) {
+        perror ("Failed to initialize worker sets");
+        return -1;
+    }
 
     EV_SET (&ws->events[0],
             fd,
@@ -30,6 +33,7 @@ worker_sets_init (worker_sets *ws,
             1,
             0);
     ws->length = 1;
+    return 0;
 }
 
 int
@@ -39,12 +43,25 @@ worker_sets_extend (worker_sets *ws,
     assert (ws != NULL);
 
     if (ws->length + count > ws->allocated) {
-        ws->allocated += (count + WS_RESERVED);
+        long to_allocate = ws->allocated + count + WS_RESERVED;
 
-        // TODO: check realloc fails
-        ws->events = realloc (ws->events, sizeof (struct kevent) * ws->allocated);
-        ws->watches = realloc (ws->watches, sizeof (struct watch *) * ws->allocated);
+        void *ptr = NULL;
+        ptr = realloc (ws->events, sizeof (struct kevent) * to_allocate);
+        if (ptr == NULL) {
+            perror ("Failed to extend events memory in the worker sets");
+            return -1;
+        }
+        ws->events = ptr;
+
+        ptr = realloc (ws->watches, sizeof (struct watch *) * to_allocate);
+        if (ptr == NULL) {
+            perror ("Failed to extend watches memory in the worker sets");
+            return -1;
+        }
+        ws->watches = ptr;
         ws->watches[0] = NULL;
+
+        ws->allocated = to_allocate;
     }
     return 0;
 }

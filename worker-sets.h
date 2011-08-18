@@ -13,7 +13,7 @@ typedef struct worker_sets {
     size_t allocated;         /* size of allocated entries */
 } worker_sets;
 
-void worker_sets_init   (worker_sets *ws, int fd);
+int  worker_sets_init   (worker_sets *ws, int fd);
 int  worker_sets_extend (worker_sets *ws, int count);
 void worker_sets_free   (worker_sets *ws);
 

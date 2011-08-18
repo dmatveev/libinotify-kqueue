@@ -20,15 +20,22 @@ typedef struct bulk_events {
     size_t size;
 } bulk_events;
 
-void
+int
 bulk_write (bulk_events *be, void *mem, size_t size)
 {
     assert (be != NULL);
     assert (mem != NULL);
 
-    be->memory = realloc (be->memory, be->size + size); // TODO check alloc
+    void *ptr = realloc (be->memory, be->size + size);
+    if (ptr == NULL) {
+        perror ("Failed to extend the bulk events buffer");
+        return -1;
+    }
+
+    be->memory = ptr;
     memcpy (be->memory + be->size, mem, size);
     be->size += size;
+    return 0;
 }
 
 void
@@ -46,77 +53,82 @@ process_command (worker *wrk)
                                                 wrk->cmd.add.mask);
     } else if (wrk->cmd.type == WCMD_REMOVE) {
         wrk->cmd.retval = worker_remove (wrk, wrk->cmd.rm_id);
-    } else {
-        // TODO: signal error
     }
 
-    // TODO: is the situation when nobody else waits on a barrier possible?
+    /* TODO: is the situation when nobody else waits on a barrier possible */
     pthread_barrier_wait (&wrk->cmd.sync);
 }
 
 
 int
 produce_directory_moves (watch        *w,
-                         dep_list    **was, // TODO: removed
-                         dep_list    **now, // TODO: added
+                         dep_list    **removed,
+                         dep_list    **added,
                          bulk_events  *be)
 {
     assert (w != NULL);
-    assert (was != NULL);
-    assert (now != NULL);
+    assert (removed != NULL);
+    assert (added != NULL);
 
-    dep_list *was_iter = *was;
-    dep_list *was_prev = NULL;
+    dep_list *removed_iter = *removed;
+    dep_list *removed_prev = NULL;
 
     int moves = 0;
 
-    while (was_iter != NULL) {
-        dep_list *now_iter = *now;
-        dep_list *now_prev = NULL;
+    while (removed_iter != NULL) {
+        dep_list *added_iter = *added;
+        dep_list *added_prev = NULL;
 
         int matched = 0;
-        while (now_iter != NULL) {
-            if (was_iter->inode == now_iter->inode) {
+        while (added_iter != NULL) {
+            if (removed_iter->inode == added_iter->inode) {
                 matched = 1;
-                uint32_t cookie = was_iter->inode & 0x00000000FFFFFFFF;
+                uint32_t cookie = removed_iter->inode & 0x00000000FFFFFFFF;
                 int event_len = 0;
                 struct inotify_event *ev;
 
-                // TODO: write directly on bulk events
                 ev = create_inotify_event (w->fd, IN_MOVED_FROM, cookie,
-                                           was_iter->path,
+                                           removed_iter->path,
                                            &event_len);
-                bulk_write (be, ev, event_len);
-                free (ev);
+                if (ev != NULL) {
+                    bulk_write (be, ev, event_len);
+                    free (ev);
+                } else {
+                    perror ("Failed to create a new IN_MOVED_FROM inotify event");
+                }
 
                 ev = create_inotify_event (w->fd, IN_MOVED_TO, cookie,
-                                           now_iter->path,
+                                           added_iter->path,
                                            &event_len);
-                bulk_write (be, ev, event_len);
-                free (ev);
+                if (ev != NULL) {
+                    bulk_write (be, ev, event_len);
+                    free (ev);
+                } else {
+                    perror ("Failed to create a new IN_MOVED_TO inotify event");
+                }
 
                 ++moves;
 
-                if (was_prev) {
-                    was_prev->next = was_iter->next;
+                if (removed_prev) {
+                    removed_prev->next = removed_iter->next;
                 } else {
-                    *was = was_iter->next;
+                    *removed = removed_iter->next;
                 }
 
-                if (now_prev) {
-                    now_prev->next = now_iter->next;
+                if (added_prev) {
+                    added_prev->next = added_iter->next;
                 } else {
-                    *now = now_iter->next;
+                    *added = added_iter->next;
                 }
                 // TODO: free smt
                 break;
             }
         }
 
-        dep_list *oldptr = was_iter;
-        was_iter = was_iter->next;
+        dep_list *oldptr = removed_iter;
+        removed_iter = removed_iter->next;
         if (matched == 0) {
-            was_prev = oldptr;
+            removed_prev = oldptr;
         } else {
             free (oldptr); // TODO: dl_free?
         }
@@ -138,12 +150,14 @@ produce_directory_changes (watch          *w,
     while (list != NULL) {
         struct inotify_event *ie = NULL;
         int ie_len = 0;
-        // TODO: check allocation
 
         ie = create_inotify_event (w->fd, flag, 0, list->path, &ie_len);
-
-        bulk_write (be, ie, ie_len);
-        free (ie);
+        if (ie != NULL) {
+            bulk_write (be, ie, ie_len);
+            free (ie);
+        } else {
+            perror ("Failed to create a new inotify event (directory changes)");
+        }
 
         list = list->next;
     }
@@ -160,12 +174,19 @@ produce_directory_diff (worker *wrk, watch *w, struct kevent *event)
     assert (w->type == WATCH_USER);
     assert (w->is_directory);
 
-    dep_list *was = NULL, *now = NULL;
+    dep_list *was = NULL, *now = NULL, *ptr = NULL;
 
     was = dl_shallow_copy (w->deps);
-    dl_shallow_free (w->deps);
 
-    w->deps = dl_listing (w->filename);
+    ptr = dl_listing (w->filename);
+    if (ptr == NULL) {
+        perror ("Failed to create a listing of directory");
+        dl_shallow_free (was);
+        return;
+    }
+    dl_shallow_free (w->deps);
+    w->deps = ptr;
+
     now = dl_shallow_copy (w->deps);
 
     dl_diff (&was, &now);
@@ -186,14 +207,19 @@ produce_directory_diff (worker *wrk, watch *w, struct kevent *event)
     {   dep_list *now_iter = now;
         while (now_iter != NULL) {
             char *path = path_concat (w->filename, now_iter->path);
-            watch *neww = worker_start_watching (wrk, path, now_iter->path, w->flags, WATCH_DEPENDENCY);
-            if (neww == NULL) {
-                perror ("Failed to start watching on a new dependency\n");
-                /* TODO terminate? */
+            if (path != NULL) {
+                watch *neww = worker_start_watching (wrk, path, now_iter->path, w->flags, WATCH_DEPENDENCY);
+                if (neww == NULL) {
+                    perror ("Failed to start watching on a new dependency\n");
+                } else {
+                    neww->parent = w;
+                }
+                free (path);
+            } else {
+                perror ("Failed to allocate a path to start watching a dependency");
             }
-            neww->parent = w;
+
             now_iter = now_iter->next;
-            free (path);
         }
     }
 
@@ -229,15 +255,22 @@ produce_notifications (worker *wrk, struct kevent *event)
                                        0,
                                        NULL,
                                        &ev_len);
-
-            safe_write (wrk->io[KQUEUE_FD], ie, ev_len);
-            free (ie);
+            if (ie != NULL) {
+                safe_write (wrk->io[KQUEUE_FD], ie, ev_len);
+                free (ie);
+            } else {
+                perror ("Failed to create a new inotify event");
+            }
 
             if ((flags & NOTE_DELETE) && w->flags & IN_DELETE_SELF) {
                 /* TODO: really look on IN_DETELE_SELF? */
                 ie = create_inotify_event (w->fd, IN_IGNORED, 0, NULL, &ev_len);
-                safe_write (wrk->io[KQUEUE_FD], ie, ev_len);
-                free (ie);
+                if (ie != NULL) {
+                    safe_write (wrk->io[KQUEUE_FD], ie, ev_len);
+                    free (ie);
+                } else {
+                    perror ("Failed to create a new IN_IGNORED event on remove");
+                }
             }
         }
     } else {
@@ -253,9 +286,13 @@ produce_notifications (worker *wrk, struct kevent *event)
                  0,
                  w->filename,
                  &ev_len);
-            
-            safe_write (wrk->io[KQUEUE_FD], ie, ev_len);
-            free (ie);
+
+            if (ie != NULL) {
+                safe_write (wrk->io[KQUEUE_FD], ie, ev_len);
+                free (ie);
+            } else {
+                perror ("Failed to create a new inotify event for dependency");
+            }
         }
     }
 }

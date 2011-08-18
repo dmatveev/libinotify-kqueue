@@ -30,14 +30,12 @@ _file_information (int fd, int *is_dir, ino_t *inode)
 
 
 
-// TODO: reuse inotify_to_kqueue?
 #define DEPS_EXCLUDED_FLAGS \
     ( IN_MOVED_FROM \
     | IN_MOVED_TO \
     | IN_MOVE_SELF \
     | IN_DELETE_SELF \
     )
-
 
 int watch_init (watch         *w,
                 watch_type_t   watch_type,
@@ -54,10 +52,9 @@ int watch_init (watch         *w,
     memset (w, 0, sizeof (watch));
     memset (kv, 0, sizeof (struct kevent));
 
-    /* TODO: EINTR? */
     int fd = open (path, O_RDONLY);
     if (fd == -1) {
-        // TODO: error
+        perror ("Failed to open file");
         return -1;
     }
 
@@ -90,7 +87,7 @@ void
 watch_free (watch *w)
 {
     assert (w != NULL);
-    close (w->fd); /* TODO: EINTR? */
+    close (w->fd);
     if (w->type == WATCH_USER && w->is_directory && w->deps) {
         dl_free (w->deps);
     }

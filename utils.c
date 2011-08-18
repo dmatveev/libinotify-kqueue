@@ -11,8 +11,12 @@ path_concat (const char *dir, const char *file)
 {
     int dir_len = strlen (dir);
     int file_len = strlen (file);
-    // TODO: check allocation
+
     char *path = malloc (dir_len + file_len + 2);
+    if (path == NULL) {
+        perror ("Failed to allocate memory path for concatenation");
+        return NULL;
+    }
 
     strcpy (path, dir);
 
@@ -36,7 +40,12 @@ create_inotify_event (int         wd,
     struct inotify_event *event = NULL;
     int name_len = name ? strlen (name) + 1 : 0;
     *event_len = sizeof (struct inotify_event) + name_len;
-    event = calloc (1, *event_len); // TODO: check allocation
+    event = calloc (1, *event_len);
+
+    if (event == NULL) {
+        perror ("Failed to allocate a new inotify event");
+        return NULL;
+    }
 
     event->wd = wd;
     event->mask = mask;
