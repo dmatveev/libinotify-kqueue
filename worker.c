@@ -75,18 +75,18 @@ worker_create ()
     worker* wrk = calloc (1, sizeof (worker));
 
     if (wrk == NULL) {
-        perror ("Failed to create a new worker");
+        perror_msg ("Failed to create a new worker");
         goto failure;
     }
 
     wrk->kq = kqueue ();
     if (wrk->kq == -1) {
-        perror ("Failed to create a new kqueue");
+        perror_msg ("Failed to create a new kqueue");
         goto failure;
     }
 
     if (socketpair (AF_UNIX, SOCK_STREAM, 0, wrk->io) == -1) {
-        perror ("Failed to create a socket pair");
+        perror_msg ("Failed to create a socket pair");
         goto failure;
     }
 
@@ -97,7 +97,7 @@ worker_create ()
 
     /* create a run a worker thread */
     if (pthread_create (&wrk->thread, NULL, worker_thread, wrk) != 0) {
-        perror ("Failed to start a new worker thread");
+        perror_msg ("Failed to start a new worker thread");
         goto failure;
     }
 
@@ -148,13 +148,13 @@ worker_add_dependencies (worker        *wrk,
                                                      parent->flags,
                                                      WATCH_DEPENDENCY);
                 if (neww == NULL) {
-                    perror ("Failed to start watching a dependency\n");
+                    perror_msg ("Failed to start watching a dependency\n");
                 } else {
                     neww->parent = parent;
                 }
                 free (path);
             } else {
-                perror ("Failed to allocate a path while adding a dependency");
+                perror_msg ("Failed to allocate a path while adding a dependency");
             }
             iter = iter->next;
         }
@@ -175,7 +175,7 @@ worker_start_watching (worker      *wrk,
     int i;
 
     if (worker_sets_extend (&wrk->sets, 1) == -1) {
-        perror ("Failed to extend worker sets");
+        perror_msg ("Failed to extend worker sets");
         return NULL;
     }
 
@@ -256,7 +256,7 @@ worker_remove (worker *wrk,
                 safe_write (wrk->io[KQUEUE_FD], ie, ie_len);
                 free (ie);
             } else {
-                perror ("Failed to create an IN_IGNORED event on stopping a watch");
+                perror_msg ("Failed to create an IN_IGNORED event on stopping a watch");
             }
             break;
         }

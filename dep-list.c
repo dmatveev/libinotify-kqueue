@@ -1,9 +1,10 @@
 #include <stdlib.h>  /* calloc */
-#include <stdio.h>   /* pritnf */
+#include <stdio.h>   /* printf */
 #include <dirent.h>  /* opendir, readdir, closedir */
 #include <string.h>  /* strcmp */
 #include <assert.h>
 
+#include "utils.h"
 #include "dep-list.h"
 
 void
@@ -25,7 +26,7 @@ dl_shallow_copy (dep_list *dl)
 
     dep_list *head = calloc (1, sizeof (dep_list));
     if (head == NULL) {
-        perror ("Failed to allocate head during shallow copy");
+        perror_msg ("Failed to allocate head during shallow copy");
         return NULL;
     }
 
@@ -38,7 +39,7 @@ dl_shallow_copy (dep_list *dl)
         if (it->next) {
             cp->next = calloc (1, sizeof (dep_list));
             if (cp->next == NULL) {
-                perror ("Failed to allocate a new element during shallow copy");
+                perror_msg ("Failed to allocate a new element during shallow copy");
                 dl_shallow_free (head);
                 return NULL;
             }
@@ -91,20 +92,20 @@ dl_listing (const char *path)
             if (head == NULL) {
                 head = calloc (1, sizeof (dep_list));
                 if (head == NULL) {
-                    perror ("Failed to allocate head during listing");
+                    perror_msg ("Failed to allocate head during listing");
                     goto error;
                 }
             }
 
             dep_list *iter = (prev == NULL) ? head : calloc (1, sizeof (dep_list));
             if (iter == NULL) {
-                perror ("Failed to allocate a new element during listing");
+                perror_msg ("Failed to allocate a new element during listing");
                 goto error;
             }
 
             iter->path = strdup (ent->d_name);
             if (iter->path == NULL) {
-                perror ("Failed to copy a string during listing");
+                perror_msg ("Failed to copy a string during listing");
                 goto error;
             }
 

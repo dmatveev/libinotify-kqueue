@@ -1,10 +1,10 @@
 #include <fcntl.h>  /* open */
 #include <unistd.h> /* close */
 #include <string.h> /* strdup */
-#include <stdio.h>  /* perror */
 #include <stdlib.h> /* free */
 #include <assert.h>
 
+#include "utils.h"
 #include "conversions.h"
 #include "watch.h"
 #include "sys/inotify.h"
@@ -20,7 +20,7 @@ _file_information (int fd, int *is_dir, ino_t *inode)
     memset (&st, 0, sizeof (struct stat));
 
     if (fstat (fd, &st) == -1) {
-        perror ("fstat failed, assuming it is just a file");
+        perror_msg ("fstat failed, assuming it is just a file");
         return;
     }
 
@@ -54,7 +54,7 @@ int watch_init (watch         *w,
 
     int fd = open (path, O_RDONLY);
     if (fd == -1) {
-        perror ("Failed to open file");
+        perror_msg ("Failed to open file");
         return -1;
     }
 

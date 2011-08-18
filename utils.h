@@ -14,4 +14,6 @@ struct inotify_event* create_inotify_event (int         wd,
 int safe_read  (int fd, void *data, size_t size);
 int safe_write (int fd, const void *data, size_t size);
 
+void perror_msg (const char *msg);
+
 #endif /* __UTILS_H__ */

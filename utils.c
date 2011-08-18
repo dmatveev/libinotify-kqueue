@@ -6,6 +6,8 @@
 #include "sys/inotify.h"
 #include "utils.h"
 
+#include "config.h"
+
 char*
 path_concat (const char *dir, const char *file)
 {
@@ -14,7 +16,7 @@ path_concat (const char *dir, const char *file)
 
     char *path = malloc (dir_len + file_len + 2);
     if (path == NULL) {
-        perror ("Failed to allocate memory path for concatenation");
+        perror_msg ("Failed to allocate memory path for concatenation");
         return NULL;
     }
 
@@ -43,7 +45,7 @@ create_inotify_event (int         wd,
     event = calloc (1, *event_len);
 
     if (event == NULL) {
-        perror ("Failed to allocate a new inotify event");
+        perror_msg ("Failed to allocate a new inotify event");
         return NULL;
     }
 
@@ -89,4 +91,14 @@ int
 safe_write (int fd, const void *data, size_t size)
 {
     SAFE_GENERIC_OP (write, fd, data, size);
+}
+
+void
+perror_msg (const char *msg)
+{
+#ifdef ENABLE_PERRORS
+    perror (msg);
+#else
+    (void) msg;
+#endif
 }

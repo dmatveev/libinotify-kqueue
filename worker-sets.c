@@ -3,11 +3,12 @@
 #include <string.h> /* memset */
 #include <stddef.h> /* NULL */
 #include <fcntl.h>  /* open, fstat */
-#include <stdio.h>  /* perror */
 #include <dirent.h> /* opendir, readdir, closedir */
 #include <sys/event.h>
 
 #include "sys/inotify.h"
+
+#include "utils.h"
 #include "worker-sets.h"
 
 
@@ -21,7 +22,7 @@ worker_sets_init (worker_sets *ws,
 
     memset (ws, 0, sizeof (worker_sets));
     if (worker_sets_extend (ws, 1) == -1) {
-        perror ("Failed to initialize worker sets");
+        perror_msg ("Failed to initialize worker sets");
         return -1;
     }
 
@@ -48,14 +49,14 @@ worker_sets_extend (worker_sets *ws,
         void *ptr = NULL;
         ptr = realloc (ws->events, sizeof (struct kevent) * to_allocate);
         if (ptr == NULL) {
-            perror ("Failed to extend events memory in the worker sets");
+            perror_msg ("Failed to extend events memory in the worker sets");
             return -1;
         }
         ws->events = ptr;
 
         ptr = realloc (ws->watches, sizeof (struct watch *) * to_allocate);
         if (ptr == NULL) {
-            perror ("Failed to extend watches memory in the worker sets");
+            perror_msg ("Failed to extend watches memory in the worker sets");
             return -1;
         }
         ws->watches = ptr;

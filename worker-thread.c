@@ -3,7 +3,6 @@
 #include <assert.h>
 #include <unistd.h> /* write */
 #include <stdlib.h> /* calloc, realloc */
-#include <stdio.h>  /* perror */
 #include <string.h> /* memset */
 #include <errno.h>
 
@@ -28,7 +27,7 @@ bulk_write (bulk_events *be, void *mem, size_t size)
 
     void *ptr = realloc (be->memory, be->size + size);
     if (ptr == NULL) {
-        perror ("Failed to extend the bulk events buffer");
+        perror_msg ("Failed to extend the bulk events buffer");
         return -1;
     }
 
@@ -94,7 +93,7 @@ produce_directory_moves (watch        *w,
                     bulk_write (be, ev, event_len);
                     free (ev);
                 } else {
-                    perror ("Failed to create a new IN_MOVED_FROM inotify event");
+                    perror_msg ("Failed to create a new IN_MOVED_FROM inotify event");
                 }
 
                 ev = create_inotify_event (w->fd, IN_MOVED_TO, cookie,
@@ -104,7 +103,7 @@ produce_directory_moves (watch        *w,
                     bulk_write (be, ev, event_len);
                     free (ev);
                 } else {
-                    perror ("Failed to create a new IN_MOVED_TO inotify event");
+                    perror_msg ("Failed to create a new IN_MOVED_TO inotify event");
                 }
 
                 ++moves;
@@ -156,7 +155,7 @@ produce_directory_changes (watch          *w,
             bulk_write (be, ie, ie_len);
             free (ie);
         } else {
-            perror ("Failed to create a new inotify event (directory changes)");
+            perror_msg ("Failed to create a new inotify event (directory changes)");
         }
 
         list = list->next;
@@ -180,7 +179,7 @@ produce_directory_diff (worker *wrk, watch *w, struct kevent *event)
 
     ptr = dl_listing (w->filename);
     if (ptr == NULL) {
-        perror ("Failed to create a listing of directory");
+        perror_msg ("Failed to create a listing of directory");
         dl_shallow_free (was);
         return;
     }
@@ -210,13 +209,13 @@ produce_directory_diff (worker *wrk, watch *w, struct kevent *event)
             if (path != NULL) {
                 watch *neww = worker_start_watching (wrk, path, now_iter->path, w->flags, WATCH_DEPENDENCY);
                 if (neww == NULL) {
-                    perror ("Failed to start watching on a new dependency\n");
+                    perror_msg ("Failed to start watching on a new dependency\n");
                 } else {
                     neww->parent = w;
                 }
                 free (path);
             } else {
-                perror ("Failed to allocate a path to start watching a dependency");
+                perror_msg ("Failed to allocate a path to start watching a dependency");
             }
 
             now_iter = now_iter->next;
@@ -259,7 +258,7 @@ produce_notifications (worker *wrk, struct kevent *event)
                 safe_write (wrk->io[KQUEUE_FD], ie, ev_len);
                 free (ie);
             } else {
-                perror ("Failed to create a new inotify event");
+                perror_msg ("Failed to create a new inotify event");
             }
 
             if ((flags & NOTE_DELETE) && w->flags & IN_DELETE_SELF) {
@@ -269,7 +268,7 @@ produce_notifications (worker *wrk, struct kevent *event)
                     safe_write (wrk->io[KQUEUE_FD], ie, ev_len);
                     free (ie);
                 } else {
-                    perror ("Failed to create a new IN_IGNORED event on remove");
+                    perror_msg ("Failed to create a new IN_IGNORED event on remove");
                 }
             }
         }
@@ -291,7 +290,7 @@ produce_notifications (worker *wrk, struct kevent *event)
                 safe_write (wrk->io[KQUEUE_FD], ie, ev_len);
                 free (ie);
             } else {
-                perror ("Failed to create a new inotify event for dependency");
+                perror_msg ("Failed to create a new inotify event for dependency");
             }
         }
     }
@@ -313,7 +312,7 @@ worker_thread (void *arg)
                           1,
                           NULL);
         if (ret == -1) {
-            perror ("kevent failed");
+            perror_msg ("kevent failed");
             continue;
         }
 
