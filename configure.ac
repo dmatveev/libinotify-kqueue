@@ -15,6 +15,12 @@ esac
 AM_CONDITIONAL(LINUX, [test "$OS" = "Linux"])
 
 
+AC_ARG_ENABLE([perrors],
+    AS_HELP_STRING([--enable-perrors], [enable error messages in the library]),
+    AC_DEFINE([ENABLE_PERRORS],[1],[Enable error messages])
+)
+
+
 kqueue_support=no
 AC_CHECK_HEADERS([sys/event.h],
 [

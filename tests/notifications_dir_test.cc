@@ -1,6 +1,8 @@
 #include <algorithm>
 #include "notifications_dir_test.hh"
 
+#define TESTS_MOVES_TRICKY
+
 notifications_dir_test::notifications_dir_test (journal &j)
 : test ("Directory notifications", j)
 {
