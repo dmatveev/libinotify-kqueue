@@ -58,6 +58,193 @@ process_command (worker *wrk)
     pthread_barrier_wait (&wrk->cmd.sync);
 }
 
+void
+produce_directory_overwrites (worker *wrk, watch *w, dep_list *prev_deps)
+{
+    assert (w != NULL);
+
+    if (prev_deps == NULL || w->deps == NULL) {
+        /* Not our case */
+        return;
+    }
+
+    dep_list *prev_deps_copy = dl_shallow_copy (prev_deps);
+    dep_list *pdc_head = prev_deps_copy;
+    dep_list *pdc_prev = NULL;
+    dep_list *current_iter = w->deps;
+
+    while (current_iter != NULL) {
+        dep_list *pdc_iter = pdc_head;
+
+        while (pdc_iter != NULL && strcmp (pdc_iter->path, current_iter->path) != 0) {
+            pdc_iter = pdc_iter->next;
+        }
+
+        if (pdc_iter == NULL) {
+            break;
+        }
+
+        if (pdc_iter->inode != current_iter->inode) {
+            /* find an appropriate watch and reopen it */
+            int i;
+            for (i = 0; i < wrk->sets.length; i++) {
+                watch *wi = wrk->sets.watches[i];
+                if (wi && strcmp (wi->filename, current_iter->path) == 0) {
+                    if (watch_reopen (wi) == -1) {
+                        /* I dont know, what to do */
+                        /* Not a very beautiful way to remove a single dependency */
+                        dep_list *dl = dl_create (wi->filename, wi->inode);
+                        worker_remove_many (wrk, w, dl, 0);
+                        dl_shallow_free (dl);
+                    } else {
+                        /* Send a notification. I prefer IN_MOVED_FROM/IN_MOVED_TO.
+                         * Linux inotify also sends IN_CREATE in some cases */
+                        struct inotify_event *ie = NULL;
+                        uint32_t cookie = wi->inode & 0x00000000FFFFFFFF;
+                        
+                        bulk_events be;
+                        memset (&be, 0, sizeof (bulk_events));
+
+                        int ie_len = 0;
+                        ie = create_inotify_event (w->fd,
+                                                   IN_MOVED_FROM,
+                                                   cookie,
+                                                   wi->filename,
+                                                   &ie_len);
+                        if (ie != NULL) {
+                            bulk_write (&be, ie, ie_len);
+                            free (ie);
+                        }
+
+                        ie = create_inotify_event (w->fd,
+                                                   IN_MOVED_TO,
+                                                   cookie,
+                                                   wi->filename,
+                                                   &ie_len);
+                        if (ie != NULL) {
+                            bulk_write (&be, ie, ie_len);
+                            free (ie);
+                        }
+
+                        if (be.memory) {
+                            safe_write (wrk->io[KQUEUE_FD], be.memory, be.size);
+                            free (be.memory);
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
+        /* TODO: Somewhere here I should exclude an item from the list */
+
+        current_iter = current_iter->next;
+    }
+
+    dl_shallow_free (prev_deps_copy);
+}
+
+int
+produce_directory_replacements (worker       *wrk,
+                                watch        *w,
+                                dep_list    **removed,
+                                dep_list    **current,
+                                bulk_events  *be)
+{
+    assert (w != NULL);
+    assert (removed != NULL);
+    assert (be != NULL);
+
+    dep_list *removed_iter = *removed;
+    dep_list *removed_prev = NULL;
+
+    int moves = 0;
+
+    while (removed_iter != NULL) {
+        dep_list *current_iter = *current;
+        dep_list *current_prev = NULL;
+
+        int matched = 0;
+        while (current_iter != NULL) {
+            if (removed_iter->inode == current_iter->inode) {
+                matched = 1;
+                uint32_t cookie = removed_iter->inode & 0x00000000FFFFFFFF;
+                int event_len = 0;
+                struct inotify_event *ev;
+
+                ev = create_inotify_event (w->fd, IN_MOVED_FROM, cookie,
+                                           removed_iter->path,
+                                           &event_len);
+                if (ev != NULL) {
+                    bulk_write (be, ev, event_len);
+                    free (ev);
+                } else {
+                    perror_msg ("Failed to create a new IN_MOVED_FROM inotify event (*)");
+                }
+
+                ev = create_inotify_event (w->fd, IN_MOVED_TO, cookie,
+                                           current_iter->path,
+                                           &event_len);
+                if (ev != NULL) {
+                    bulk_write (be, ev, event_len);
+                    free (ev);
+                } else {
+                    perror_msg ("Failed to create a new IN_MOVED_TO inotify event (*)");
+                }
+
+                int i;
+                for (i = 1; i < wrk->sets.length; i++) {
+                    watch *iw = wrk->sets.watches[i];
+                    if (iw && iw->parent == w
+                        && strcmp (current_iter->path, iw->filename) == 0) {
+                         dep_list *dl = dl_create (iw->filename, iw->inode);
+                         worker_remove_many (wrk, w, dl, 0);
+                         dl_shallow_free (dl);
+                         break;
+                    }
+                }
+
+                ++moves;
+
+                if (current_prev) {
+                    current_prev->next = current_iter->next;
+                } else {
+                    *current = current_iter->next;
+                }
+                
+                if (removed_prev) {
+                    removed_prev->next = removed_iter->next;
+                } else {
+                    *removed = removed_iter->next;
+                }
+
+                // TODO: free smt
+                break;
+            }
+
+            dep_list *oldptr = current_iter;
+            current_iter = current_iter->next;
+            if (matched == 0) {
+                current_prev = oldptr;
+            } else {
+                free (oldptr);
+            }
+        }
+
+        dep_list *oldptr = removed_iter;
+        removed_iter = removed_iter->next;
+        if (matched == 0) {
+            removed_prev = oldptr;
+        } else {
+            free (oldptr); // TODO: dl_free?
+        }
+    }
+
+    return (moves > 0);
+}
+
+
+
 
 int
 produce_directory_moves (watch        *w,
@@ -82,6 +269,7 @@ produce_directory_moves (watch        *w,
         while (added_iter != NULL) {
             if (removed_iter->inode == added_iter->inode) {
                 matched = 1;
+                
                 uint32_t cookie = removed_iter->inode & 0x00000000FFFFFFFF;
                 int event_len = 0;
                 struct inotify_event *ev;
@@ -178,7 +366,8 @@ produce_directory_diff (worker *wrk, watch *w, struct kevent *event)
     was = dl_shallow_copy (w->deps);
 
     ptr = dl_listing (w->filename);
-    if (ptr == NULL) {
+    if (ptr == NULL && errno != ENOENT) {
+        /* why skip ENOENT? directory could be already deleted at this point */
         perror_msg ("Failed to create a listing of directory");
         dl_shallow_free (was);
         return;
@@ -192,9 +381,32 @@ produce_directory_diff (worker *wrk, watch *w, struct kevent *event)
 
     bulk_events be;
     memset (&be, 0, sizeof (bulk_events));
+
+    int need_upd = 0;
     if (produce_directory_moves (w, &was, &now, &be)) {
+        ++need_upd;
+    }
+
+    dep_list *without_internal_moves = dl_shallow_copy (w->deps);
+    if (produce_directory_replacements (wrk, w, &was, &without_internal_moves, &be)) {
+        ++need_upd;
+    }
+
+    produce_directory_overwrites (wrk, w, without_internal_moves);
+
+    dl_shallow_free (without_internal_moves);
+    
+    if (need_upd) {
         worker_update_paths (wrk, w);
     }
+
+    printf ("---- was:\n");
+    dl_print (was);
+    printf ("---- now:\n");
+    dl_print (now);
+    printf ("---- deps:\n");
+    dl_print (w->deps);
+    
     produce_directory_changes (w, was, IN_DELETE, &be);
     produce_directory_changes (w, now, IN_CREATE, &be);
 

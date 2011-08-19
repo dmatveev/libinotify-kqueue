@@ -8,7 +8,7 @@
 #include "update_flags_dir_test.hh"
 #include "open_close_test.hh"
 
-#define THREADED
+//#define THREADED
 
 int main (int argc, char *argv[]) {
     journal j;
@@ -32,29 +32,29 @@ int main (int argc, char *argv[]) {
     ufdt.wait_for_end ();
     oct.wait_for_end ();
 #else
-    start_stop_test sst (j);
-    sst.wait_for_end ();
+    // start_stop_test sst (j);
+    // sst.wait_for_end ();
 
-    start_stop_dir_test ssdt (j);
-    ssdt.wait_for_end ();
+    // start_stop_dir_test ssdt (j);
+    // ssdt.wait_for_end ();
 
-    notifications_test ntfst (j);
-    ntfst.wait_for_end ();
+    // notifications_test ntfst (j);
+    // ntfst.wait_for_end ();
 
     notifications_dir_test ntfsdt (j);
     ntfsdt.wait_for_end ();
 
-    fail_test ft (j);
-    ft.wait_for_end ();
+    // fail_test ft (j);
+    // ft.wait_for_end ();
 
-    update_flags_test uft (j);
-    uft.wait_for_end ();
+    // update_flags_test uft (j);
+    // uft.wait_for_end ();
 
-    update_flags_dir_test ufdt (j);
-    ufdt.wait_for_end ();
+    // update_flags_dir_test ufdt (j);
+    // ufdt.wait_for_end ();
 
-    open_close_test oct (j);
-    oct.wait_for_end ();
+    // open_close_test oct (j);
+    // oct.wait_for_end ();
 #endif
 
     j.summarize ();

@@ -39,7 +39,8 @@ int watch_init (watch         *w,
                 uint32_t       flags,
                 int            index);
 
-void watch_free (watch *w);
+int  watch_reopen (watch *w);
+void watch_free   (watch *w);
 
 
 #endif /* __WATCH_H__ */

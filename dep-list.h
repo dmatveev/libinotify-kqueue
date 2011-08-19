@@ -10,6 +10,7 @@ typedef struct dep_list {
     ino_t inode;
 } dep_list;
 
+dep_list* dl_create       (char *path, ino_t inode);
 void      dl_print        (dep_list *dl);
 dep_list* dl_shallow_copy (dep_list *dl);
 void      dl_shallow_free (dep_list *dl);

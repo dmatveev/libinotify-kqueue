@@ -54,7 +54,7 @@ int watch_init (watch         *w,
 
     int fd = open (path, O_RDONLY);
     if (fd == -1) {
-        perror_msg ("Failed to open file");
+        perror_msg ("Failed to open a file");
         return -1;
     }
 
@@ -80,6 +80,27 @@ int watch_init (watch         *w,
             0,
             index);
 
+    return 0;
+}
+
+int
+watch_reopen (watch *w)
+{
+    assert (w != NULL);
+    close (w->fd);
+
+    int fd = open (w->filename, O_RDONLY);
+    if (fd == -1) {
+        perror_msg ("Failed to reopen a file");
+        return -1;
+    }
+
+    w->fd = fd;
+
+    /* Actually, reopen happens only for dependencies. */
+    int is_dir = 0;
+    _file_information (fd, &is_dir, &w->inode);
+    w->is_directory = (w->type == WATCH_USER ? is_dir : 0);
     return 0;
 }
 

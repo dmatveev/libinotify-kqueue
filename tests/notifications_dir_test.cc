@@ -1,8 +1,6 @@
 #include <algorithm>
 #include "notifications_dir_test.hh"
 
-#define TESTS_MOVES_TRICKY
-
 notifications_dir_test::notifications_dir_test (journal &j)
 : test ("Directory notifications", j)
 {
@@ -89,8 +87,6 @@ void notifications_dir_test::run ()
             contains (received, event ("2", wid, IN_DELETE)));
 
     
-#ifdef TESTS_MOVES_TRICKY
-    /* And tricky test case to test renames in a directory. */
     cons.output.reset ();
     cons.input.receive (5);
 
@@ -112,20 +108,8 @@ void notifications_dir_test::run ()
         should ("both events for a rename have the same cookie",
                 iter_from->cookie == iter_to->cookie);
     }
-#else
-    /* A simplier and less strict version */
-    cons.output.reset ();
-    cons.input.receive ();
 
-    system ("mv ntfsdt-working/1 ntfsdt-working/one");
-
-    cons.output.wait ();
-    received = cons.output.registered ();
-    should ("receive all events on moves",
-            contains (received, event ("1", wid, IN_MOVED_FROM))
-            && contains (received, event ("one", wid, IN_MOVED_TO)));
-#endif
-
+    
     cons.output.reset ();
     cons.input.receive ();
 
@@ -140,6 +124,7 @@ void notifications_dir_test::run ()
     cons.output.reset ();
     cons.input.receive ();
 
+    std::cout << "******************** MOVING" << std::endl;
     system ("mv ntfsdt-working/foo ntfsdt-working/bar");
 
     cons.output.wait ();
@@ -153,6 +138,7 @@ void notifications_dir_test::run ()
     cons.output.reset ();
     cons.input.receive ();
 
+    std::cout << "******************** TOUCHING" << std::endl;
     system ("touch ntfsdt-working/bar");
 
     cons.output.wait ();
@@ -164,6 +150,7 @@ void notifications_dir_test::run ()
     cons.output.reset ();
     cons.input.receive ();
 
+    std::cout << "******************** FUUUCK!" << std::endl;
     system ("mv ntfsdt-cache/bar ntfsdt-working/bar");
 
     /* Interesting test case here.
@@ -206,6 +193,7 @@ void notifications_dir_test::run ()
     cons.output.reset ();
     cons.input.receive (4);
 
+    std::cout << "******************** REMOVING" << std::endl;
     system ("rm -rf ntfsdt-working-2");
 
     cons.output.wait ();

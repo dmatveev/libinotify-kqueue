@@ -303,6 +303,7 @@ worker_remove_many (worker *wrk, watch *parent, dep_list *items, int remove_self
 
     dep_list *to_remove = dl_shallow_copy (items);
     dep_list *to_head = to_remove;
+    
     int i, j;
 
     for (i = 1, j = 1; i < wrk->sets.length; i++) {
@@ -385,8 +386,11 @@ worker_update_paths (worker *wrk, watch *parent)
             break;
         }
 
+        printf ("working with watch %s (%d)\n", w->filename, w->inode);
+
         if (w->parent == parent) {
             while (iter != NULL && iter->inode != w->inode) {
+                printf ("testing %s (%d)\n", iter->path, iter->inode);
                 prev = iter;
                 iter = iter->next;
             }
@@ -397,11 +401,15 @@ worker_update_paths (worker *wrk, watch *parent)
                 } else {
                     to_head = iter->next;
                 }
-            }
 
-            free (w->filename);
-            // TODO: memleak?
-            w->filename = strdup (iter->path);
+                if (strcmp (iter->path, w->filename)) {
+                    printf ("updating to %s\n", iter->path);
+
+                    free  (w->filename);
+                    // TODO: memleak?
+                    w->filename = strdup (iter->path);
+                }
+            }
         }
     }
     

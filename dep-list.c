@@ -17,6 +17,19 @@ dl_print (dep_list *dl)
     printf ("\n");
 }
 
+dep_list* dl_create (char *path, ino_t inode)
+{
+    dep_list *dl = calloc (1, sizeof (dep_list));
+    if (dl == NULL) {
+        perror_msg ("Failed to create a new dep-list item");
+        return NULL;
+    }
+
+    dl->path = path;
+    dl->inode = inode;
+    return dl;
+}
+
 dep_list*
 dl_shallow_copy (dep_list *dl)
 {
