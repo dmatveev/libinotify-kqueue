@@ -254,7 +254,7 @@ dl_diff (dep_list **before, dep_list **after)
                 } else {
                     *after = after_iter->next;
                 }
-                free (after_iter); // TODO: dl_free?
+                free (after_iter);
                 break;
             }
             after_prev = after_iter;
@@ -266,7 +266,7 @@ dl_diff (dep_list **before, dep_list **after)
         if (matched == 0) {
             before_prev = oldptr;
         } else {
-            free (oldptr); // TODO: dl_free?
+            free (oldptr);
         }
     }
 }

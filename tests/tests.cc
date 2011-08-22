@@ -30,7 +30,7 @@
 #include "update_flags_dir_test.hh"
 #include "open_close_test.hh"
 
-//#define THREADED
+#define THREADED
 
 int main (int argc, char *argv[]) {
     journal j;

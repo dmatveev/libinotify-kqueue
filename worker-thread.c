@@ -122,9 +122,8 @@ process_command (worker *wrk)
         while (added_list##_iter != NULL) {                             \
             if (match_expr) {                                           \
                 matched = 1;                                            \
-                matched_code;                                           \
-                                                                        \
                 ++productive;                                           \
+                matched_code;                                           \
                                                                         \
                 if (removed_list##_prev) {                              \
                     removed_list##_prev->next = removed_list##_iter->next; \
@@ -136,6 +135,7 @@ process_command (worker *wrk)
                 } else {                                                \
                     *added_list = added_list##_iter->next;              \
                 }                                                       \
+                free (added_list##_iter);                               \
                 break;                                                  \
             }                                                           \
             added_list##_iter = added_list##_iter->next;                \

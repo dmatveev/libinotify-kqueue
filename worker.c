@@ -465,8 +465,6 @@ worker_remove_many (worker *wrk, watch *parent, dep_list *items, int remove_self
         wrk->sets.watches[i] = NULL;
     }
 
-    // TODO: who will free items?
-    // TODO: possible memory corruption here?
     dl_shallow_free (to_remove);
 }
 
@@ -515,14 +513,12 @@ worker_update_paths (worker *wrk, watch *parent)
                 }
 
                 if (strcmp (iter->path, w->filename)) {
-                    free  (w->filename);
-                    // TODO: memleak?
+                    free (w->filename);
                     w->filename = strdup (iter->path);
                 }
             }
         }
     }
     
-    // TODO: possible memory corruption here?
     dl_shallow_free (to_update);
 }
