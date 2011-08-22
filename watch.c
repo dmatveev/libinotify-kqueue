@@ -87,20 +87,32 @@ int
 watch_reopen (watch *w)
 {
     assert (w != NULL);
+    assert (w->parent != NULL);
+    assert (w->event != NULL);
     close (w->fd);
 
-    int fd = open (w->filename, O_RDONLY);
+    char *filename = path_concat (w->parent->filename, w->filename);
+    if (filename == NULL) {
+        perror_msg ("Failed to create a filename to make reopen|");
+        return -1;
+    }
+
+    int fd = open (filename, O_RDONLY);
     if (fd == -1) {
         perror_msg ("Failed to reopen a file");
+        free (filename);
         return -1;
     }
 
     w->fd = fd;
+    w->event->ident = fd;
 
     /* Actually, reopen happens only for dependencies. */
     int is_dir = 0;
     _file_information (fd, &is_dir, &w->inode);
     w->is_directory = (w->type == WATCH_USER ? is_dir : 0);
+
+    free (filename);
     return 0;
 }
 

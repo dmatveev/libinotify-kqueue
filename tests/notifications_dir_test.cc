@@ -124,7 +124,6 @@ void notifications_dir_test::run ()
     cons.output.reset ();
     cons.input.receive ();
 
-    std::cout << "******************** MOVING" << std::endl;
     system ("mv ntfsdt-working/foo ntfsdt-working/bar");
 
     cons.output.wait ();
@@ -138,7 +137,6 @@ void notifications_dir_test::run ()
     cons.output.reset ();
     cons.input.receive ();
 
-    std::cout << "******************** TOUCHING" << std::endl;
     system ("touch ntfsdt-working/bar");
 
     cons.output.wait ();
@@ -150,7 +148,6 @@ void notifications_dir_test::run ()
     cons.output.reset ();
     cons.input.receive ();
 
-    std::cout << "******************** FUUUCK!" << std::endl;
     system ("mv ntfsdt-cache/bar ntfsdt-working/bar");
 
     /* Interesting test case here.
@@ -193,7 +190,6 @@ void notifications_dir_test::run ()
     cons.output.reset ();
     cons.input.receive (4);
 
-    std::cout << "******************** REMOVING" << std::endl;
     system ("rm -rf ntfsdt-working-2");
 
     cons.output.wait ();
