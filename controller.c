@@ -38,6 +38,15 @@
 static worker* volatile workers[WORKER_SZ] = {NULL};
 static pthread_mutex_t workers_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+/**
+ * Create a new inotify instance.
+ *
+ * This function will create a new inotify instance (actually, a worker
+ * with its own thread). To destroy the instance, just close its file
+ * descriptor.
+ *
+ * @return  -1 on failure, a file descriptor on success.
+ **/
 INO_EXPORT int
 inotify_init (void) __THROW
 {
@@ -59,12 +68,18 @@ inotify_init (void) __THROW
     return -1;
 }
 
-/* INO_EXPORT int */
-/* inotify_init1 (int flags) __THROW */
-/* { */
-/*     return 0; */
-/* } */
 
+/**
+ * Add or modify a watch.
+ *
+ * If the watch with a such filename is already exist, its mask will
+ * be updated. A new watch will be created otherwise.
+ *
+ * @param[in] fd   A file descriptor of an inotify instance.
+ * @param[in] name A path to a file to watch.
+ * @param[in] mask A combination of inotify flags. 
+ * @return id of a watch, -1 on failure.
+ **/
 INO_EXPORT int
 inotify_add_watch (int         fd,
                    const char *name,
@@ -110,6 +125,17 @@ inotify_add_watch (int         fd,
     return -1;
 }
 
+/**
+ * Remove a watch.
+ *
+ * Removes a watch and releases all the associated resources.
+ * Notifications from the watch should not be received by a client
+ * anymore.
+ *
+ * @param[in] fd Inotify instance file descriptor.
+ * @param[in] wd Watch id.
+ * @return 0 on success, -1 on failure.
+ **/
 INO_EXPORT int
 inotify_rm_watch (int fd,
                   int wd) __THROW
@@ -155,6 +181,15 @@ inotify_rm_watch (int fd,
     return 0;
 }
 
+/**
+ * Erase a worker from a list of workers.
+ * 
+ * This function does not lock the global array of workers (I assume that
+ * marking its items as volatile should be enough). Also this function is
+ * intended to be called from the worker threads only.
+ * 
+ * @param[in] wrk A pointer to a worker
+ **/
 void
 worker_erase (worker *wrk)
 {

@@ -29,6 +29,11 @@
 #include "utils.h"
 #include "dep-list.h"
 
+/**
+ * Print a list to stdout.
+ *
+ * @param[in] dl A pointer to a list.
+ **/
 void
 dl_print (dep_list *dl)
 {
@@ -39,6 +44,15 @@ dl_print (dep_list *dl)
     printf ("\n");
 }
 
+/**
+ * Create a new list item.
+ *
+ * Create a new list item and initialize its fields.
+ *
+ * @param[in] path  A name of a file (the string is not copied!).
+ * @param[in] inode A file's inode number.
+ * @return A pointer to a new item or NULL in the case of error.
+ **/
 dep_list* dl_create (char *path, ino_t inode)
 {
     dep_list *dl = calloc (1, sizeof (dep_list));
@@ -52,6 +66,16 @@ dep_list* dl_create (char *path, ino_t inode)
     return dl;
 }
 
+/**
+ * Create a shallow copy of a list.
+ *
+ * A shallow copy is a copy of a structure, but not the copy of the
+ * contents. All data pointers (`path' in our case) of a list and its
+ * shallow copy will point to the same memory.
+ *
+ * @param[in] dl A pointer to list to make a copy. May be NULL.
+ * @return A shallow copy of the list.
+ **/ 
 dep_list*
 dl_shallow_copy (dep_list *dl)
 {
@@ -86,6 +110,14 @@ dl_shallow_copy (dep_list *dl)
     return head;
 }
 
+/**
+ * Free the memory allocated for shallow copy.
+ *
+ * This function will free the memory used by a list structure, but
+ * the list data will remain in the heap.
+ *
+ * @param[in] dl A pointer to a list. May be NULL.
+ **/
 void
 dl_shallow_free (dep_list *dl)
 {
@@ -96,6 +128,14 @@ dl_shallow_free (dep_list *dl)
     }
 }
 
+/**
+ * Free the memory allocated for a list.
+ *
+ * This function will free all the memory used by a list: both
+ * list structure and the list data.
+ *
+ * @param[in] dl A pointer to a list. May be NULL.
+ **/
 void
 dl_free (dep_list *dl)
 {
@@ -108,6 +148,12 @@ dl_free (dep_list *dl)
     }
 }
 
+/**
+ * Create a directory listing and return it as a list.
+ *
+ * @param[in] path A path to a directory.
+ * @return A pointer to a list. May return NULL, check errno in this case.
+ **/
 dep_list*
 dl_listing (const char *path)
 {
@@ -164,7 +210,19 @@ error:
     return NULL;
 }
 
-void dl_diff (dep_list **before, dep_list **after)
+/**
+ * Perform a diff on lists.
+ *
+ * This function performs something like a set intersection. The same items
+ * will be removed from the both lists. Items are comapred by a filename.
+ * 
+ * @param[in,out] before A pointer to a pointer to a list. Will contain items
+ *     which were not found in the `after' list.
+ * @param[in,out] after  A pointer to a pointer to a list. Will containt items
+ *     which were not found in the `before' list.
+ **/
+void
+dl_diff (dep_list **before, dep_list **after)
 {
     assert (before != NULL);
     assert (after != NULL);

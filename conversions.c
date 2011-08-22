@@ -28,6 +28,13 @@
 /* It is just a shortctut */
 #define NOTE_MODIFIED (NOTE_WRITE | NOTE_EXTEND)
 
+/**
+ * Convert the inotify watch mask to the kqueue event filter flags.
+ *
+ * @param[in] flags        An inotify watch mask.
+ * @param[in] is_directory 1 for directories, 0 for files.
+ * @return Converted kqueue event filter flags.
+ **/  
 uint32_t
 inotify_to_kqueue (uint32_t flags, int is_directory)
 {
@@ -54,6 +61,13 @@ inotify_to_kqueue (uint32_t flags, int is_directory)
 }
 
 
+/**
+ * Convert the kqueue event filter flags to the inotify watch mask. 
+ *
+ * @param[in] flags        A kqueue filter flags.
+ * @param[in] is_directory 1 for directories, 0 for files.
+ * @return Converted inotify watch mask.
+ **/  
 uint32_t
 kqueue_to_inotify (uint32_t flags, int is_directory)
 {

@@ -36,11 +36,26 @@
 #include "worker-sets.h"
 #include "worker-thread.h"
 
+/**
+ * This structure represents a sequence of packets.
+ * It is used to accumulate inotify events in a single piece
+ * of memory and to write it via a single call to write().
+ * 
+ * Such accumulation is needed when processing directory changes and
+ * a lot of events are expected to be sent to the user.
+ **/
 typedef struct bulk_events {
     void *memory;
     size_t size;
 } bulk_events;
 
+/**
+ * Write a packet to the buffer. Extend the buffer, if needed.
+ *
+ * @param[in] be  A pointer to #bulk_events.
+ * @param[in] mem A pointer to data to write.
+ * @param[in] size The number of bytes to write.
+ **/
 int
 bulk_write (bulk_events *be, void *mem, size_t size)
 {
@@ -59,6 +74,11 @@ bulk_write (bulk_events *be, void *mem, size_t size)
     return 0;
 }
 
+/**
+ * Process a worker command.
+ *
+ * @param[in] wrk A pointer to #worker.
+ **/
 void
 process_command (worker *wrk)
 {
@@ -80,6 +100,11 @@ process_command (worker *wrk)
     pthread_barrier_wait (&wrk->cmd.sync);
 }
 
+/**
+ * Traverses two lists. Compares items with a supplied expression
+ * and performs the passed code on a match. Removes the matched entries
+ * from the both lists.
+ **/
 #define EXCLUDE_SIMILAR(removed_list, added_list, match_expr, matched_code) \
     assert (removed_list != NULL);                                      \
     assert (added_list != NULL);                                        \
@@ -126,6 +151,31 @@ process_command (worker *wrk)
     return (productive > 0);
 
 
+/**
+ * Detect and notify about replacements in the watched directory.
+ *
+ * Consider you are watching a directory foo with the folloing files
+ * insinde:
+ *
+ *    foo/bar
+ *    foo/baz
+ *
+ * A replacement in a watched directory is what happens when you invoke
+ *
+ *    mv /foo/bar /foo/bar
+ *
+ * i.e. when you replace a file in a watched directory with another file
+ * from the same directory.
+ *
+ * @param[in]     wrk     A pointer to #worker.
+ * @param[in]     w       A pointer to #watch.
+ * @param[in,out] removed A pointer to a pointer to a #dep_list - a list
+ *     of items which are considered as deleted in the watched directory.
+ * @param[in,out] current A pointer to a pointer to a #dep_list - the
+ *     current directory listing.
+ * @param[in]     be      A pointer to #bulk_events
+ * @return The number of the detected replacemenets.
+ **/
 int
 produce_directory_replacements (worker        *wrk,
                                 watch         *w,
@@ -179,6 +229,35 @@ produce_directory_replacements (worker        *wrk,
          });
 }
 
+/**
+ * Detect and notify about overwrites in the watched directory.
+ *
+ * Consider you are watching a directory foo with a file inside:
+ *
+ *    foo/bar
+ *
+ * And you also have a directory tmp with a file 1:
+ * 
+ *    tmp/1
+ *
+ * You do not watching directory tmp.
+ *
+ * A replacement in a watched directory is what happens when you invoke
+ *
+ *    mv /tmp/1 /foo/bar
+ *
+ * i.e. when you overwrite a file in a watched directory with another file
+ * from the another directory.
+ *
+ * @param[in]     wrk     A pointer to #worker.
+ * @param[in]     w       A pointer to #watch.
+ * @param[in,out] removed A pointer to a pointer to a #dep_list -
+ *     the listing of the previous contents of a directory.
+ * @param[in,out] current A pointer to a pointer to a #dep_list -
+ *     the current directory listing (with removed replacements, see above).
+ * @param[in]     be      A pointer to #bulk_events
+ * @return The number of the detected overwrites.
+ **/
 int
 produce_directory_overwrites (worker      *wrk,
                               watch       *w,
@@ -237,6 +316,20 @@ produce_directory_overwrites (worker      *wrk,
          });
 }
 
+/**
+ * Detect and notify about moves in the watched directory.
+ *
+ * A move is what happens when you rename a file in a directory, and
+ * a new name is unique, i.e. you didnt overwrite any existing files
+ * with this one.
+ *
+ * @param[in]     w       A pointer to #watch.
+ * @param[in,out] removed A pointer to a pointer to #dep_list - the list of
+ *     files considered as removed in the watched directory.
+ * @param[in,out] added   A pointer to a pointer to #dep_list - the list of
+ *     files considered as created in the watched directory.
+ * @param[in]     be      A pointer to #bulk_events.
+ **/
 int
 produce_directory_moves (watch        *w,
                          dep_list    **removed,
@@ -276,7 +369,19 @@ produce_directory_moves (watch        *w,
          });
 }
 
-
+/**
+ * Inform about changes in the watched directory.
+ *
+ * This function traverses the list of items and for each item
+ * it writes inotify notifications with the specified mask.
+ *
+ * The function is used to notify about IN_CREATE/IN_DELETE events
+ *
+ * @param[in] w    A pointer to #watch.
+ * @param[in] list A list of items to notify about.
+ * @param[in] flag A flag to set in the each inotify notification.
+ * @param[in] be   A pointer to #bulk_events.
+ **/
 void
 produce_directory_changes (watch          *w,
                            dep_list       *list,
@@ -302,7 +407,16 @@ produce_directory_changes (watch          *w,
     }
 }
 
-
+/**
+ * Detect and notify about the changes in the watched directory.
+ *
+ * This function is top-level and it operates with other specific routines
+ * to notify about different sets of events in a different conditions.
+ *
+ * @param[in] wrk   A pointer to #worker.
+ * @param[in] w     A pointer to #watch.
+ * @param[in] event A pointer to the received kqueue event.
+ **/
 void
 produce_directory_diff (worker *wrk, watch *w, struct kevent *event)
 {
@@ -387,6 +501,12 @@ produce_directory_diff (worker *wrk, watch *w, struct kevent *event)
     dl_free (was);
 }
 
+/**
+ * Produce notifications about file system activity observer by a worker.
+ *
+ * @param[in] wrk   A pointer to #worker.
+ * @param[in] event A pointer to the associated received kqueue event.
+ **/
 void
 produce_notifications (worker *wrk, struct kevent *event)
 {
@@ -455,6 +575,12 @@ produce_notifications (worker *wrk, struct kevent *event)
     }
 }
 
+/**
+ * The worker thread command loop.
+ *
+ * @param[in] arg A pointer to the associated #worker.
+ * @return NULL. 
+**/
 void*
 worker_thread (void *arg)
 {

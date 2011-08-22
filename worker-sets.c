@@ -36,6 +36,13 @@
 
 #define WS_RESERVED 10
 
+/**
+ * Initialize the worker sets.
+ *
+ * @param[in] ws A pointer to the worker sets.
+ * @param[in] fd A control file descriptor.
+ * @return 0 on success, -1 on failure.
+ **/
 int
 worker_sets_init (worker_sets *ws,
                   int          fd)
@@ -59,6 +66,13 @@ worker_sets_init (worker_sets *ws,
     return 0;
 }
 
+/**
+ * Extend the memory allocated for the worker sets.
+ *
+ * @param[in] ws    A pointer to the worker sets.
+ * @param[in] count The number of items to grow.
+ * @return 0 on success, -1 on error.
+ **/
 int
 worker_sets_extend (worker_sets *ws,
                     int          count)
@@ -89,6 +103,11 @@ worker_sets_extend (worker_sets *ws,
     return 0;
 }
 
+/**
+ * Free the memory allocated for the worker sets.
+ *
+ * @param[in] ws A pointer the the worker sets.
+ **/
 void
 worker_sets_free (worker_sets *ws)
 {

@@ -30,6 +30,13 @@
 
 #include "config.h"
 
+/**
+ * Create a file path using its name and a path to its directory.
+ *
+ * @param[in] dir  A path to a file directory. May end with a '/'.
+ * @param[in] file File name.
+ * @return A concatenated path. Should be freed with free().
+ **/
 char*
 path_concat (const char *dir, const char *file)
 {
@@ -50,10 +57,19 @@ path_concat (const char *dir, const char *file)
     }
 
     strcpy (path + dir_len, file);
-
     return path;
 }
 
+/**
+ * Create a new inotify event.
+ *
+ * @param[in] wd     An associated watch's id.
+ * @param[in] mask   An inotify watch mask.
+ * @param[in] cookie Event cookie.
+ * @param[in] name   File name (may be NULL).
+ * @param[out] event_len The length of the created event, in bytes.
+ * @return A pointer to a created event on NULL on a failure.
+ **/
 struct inotify_event*
 create_inotify_event (int         wd,
                       uint32_t    mask,
@@ -102,19 +118,43 @@ create_inotify_event (int         wd,
     }                                           \
     return 0;
 
-
+/**
+ * EINTR-ready version of read().
+ *
+ * @param[in]  fd   A file descriptor to read from.
+ * @param[out] data A receiving buffer.
+ * @param[in]  size The number of bytes to read.
+ * @return 0 on success, -1 on failure. 
+**/
 int
-safe_read  (int fd, void *data, size_t size)
+safe_read (int fd, void *data, size_t size)
 {
     SAFE_GENERIC_OP (read, fd, data, size);
 }
 
+/**
+ * EINTR-ready version of write().
+ *
+ * @param[in] fd   A file descriptor to write to.
+ * @param[in] data A buffer to wtite.
+ * @param[in] size The number of bytes to write.
+ * @return 0 on success, -1 on failure.
+ **/
 int
 safe_write (int fd, const void *data, size_t size)
 {
     SAFE_GENERIC_OP (write, fd, data, size);
 }
 
+/**
+ * Print an error message, if allowed.
+ *
+ * The function uses perror, so the errno-based error description will
+ * be printed too.
+ * The library should be built with --enable-perrors configure option.
+ *
+ * @param[in] msg A message to print.
+ **/
 void
 perror_msg (const char *msg)
 {

@@ -44,6 +44,13 @@ worker_update_flags (worker *wrk, watch *w, uint32_t flags);
 static void
 worker_cmd_reset (worker_cmd *cmd);
 
+/**
+ * Initialize a command with the data of the inotify_add_watch() call.
+ *
+ * @param[in] cmd      A pointer to #worker_cmd.
+ * @param[in] filename A file name of the watched entry.
+ * @param[in] mask     A combination of the inotify watch flags.
+ **/
 void
 worker_cmd_add (worker_cmd *cmd, const char *filename, uint32_t mask)
 {
@@ -57,6 +64,13 @@ worker_cmd_add (worker_cmd *cmd, const char *filename, uint32_t mask)
     pthread_barrier_init (&cmd->sync, NULL, 2);
 }
 
+
+/**
+ * Initiailize a command with the data of the inotify_rm_watch() call.
+ *
+ * @param[in] cmd       A pointer to #worker_cmd
+ * @param[in] watch_id  The identificator of a watch to remove.
+ **/
 void
 worker_cmd_remove (worker_cmd *cmd, int watch_id)
 {
@@ -69,7 +83,11 @@ worker_cmd_remove (worker_cmd *cmd, int watch_id)
     pthread_barrier_init (&cmd->sync, NULL, 2);
 }
 
-
+/**
+ * Reset the worker command.
+ *
+ * @param[in] cmd A pointer to #worker_cmd.
+ **/
 static void
 worker_cmd_reset (worker_cmd *cmd)
 {
@@ -81,6 +99,14 @@ worker_cmd_reset (worker_cmd *cmd)
     memset (cmd, 0, sizeof (worker_cmd));
 }
 
+/**
+ * Wait on a worker command.
+ *
+ * This function is used by both user and worker threads for
+ * synchronization.
+ *
+ * @param[in] cmd A pointer to #worker_cmd.
+ **/
 void
 worker_cmd_wait (worker_cmd *cmd)
 {
@@ -90,7 +116,11 @@ worker_cmd_wait (worker_cmd *cmd)
 }
 
 
-
+/**
+ * Create a new worker and start its thread.
+ *
+ * @return A pointer to a new worker.
+ **/
 worker*
 worker_create ()
 {
@@ -134,7 +164,11 @@ worker_create ()
     return NULL;
 }
 
-
+/**
+ * Free a worker and all the associated memory.
+ *
+ * @param[in] wrk A pointer to #worker.
+ **/
 void
 worker_free (worker *wrk)
 {
@@ -148,6 +182,17 @@ worker_free (worker *wrk)
     worker_sets_free (&wrk->sets);
 }
 
+/**
+ * When starting watching a directory, start also watching its contents.
+ *
+ * This function creates and initializes additional watches for a directory.
+ *
+ * @param[in] wrk    A pointer to #worker.
+ * @param[in] event  A pointer to the associated kqueue event.
+ * @param[in] parent A pointer to the parent #watch, i.e. the watch we add
+ *     dependencies for.
+ * @return 0 on success, -1 otherwise.
+ **/
 static int
 worker_add_dependencies (worker        *wrk,
                          struct kevent *event,
@@ -184,6 +229,16 @@ worker_add_dependencies (worker        *wrk,
     return 0;
 }
 
+/**
+ * Start watching a file or a directory.
+ *
+ * @param[in] wrk        A pointer to #worker.
+ * @param[in] path       Path to watch.
+ * @param[in] entry_name Entry name. Used for dependencies.
+ * @param[in] flags      A combination of inotify event flags.
+ * @param[in] type       The type of a watch.
+ * @return A pointer to a created watch.
+ **/
 watch*
 worker_start_watching (worker      *wrk,
                        const char  *path,
@@ -223,6 +278,14 @@ worker_start_watching (worker      *wrk,
     return wrk->sets.watches[i];
 }
 
+/**
+ * Add or modify a watch.
+ *
+ * @param[in] wrk   A pointer to #worker.
+ * @param[in] path  A file path to watch.
+ * @param[in] flags A combination of inotify watch flags.
+ * @return An id of an added watch on success, -1 on failure.
+**/
 int
 worker_add_or_modify (worker     *wrk,
                       const char *path,
@@ -254,7 +317,13 @@ worker_add_or_modify (worker     *wrk,
     return (w != NULL) ? w->fd : -1;
 }
 
-
+/**
+ * Stop and remove a watch.
+ *
+ * @param[in] wrk A pointer to #worker.
+ * @param[in] id  An ID of the watch to remove.
+ * @return 0 on success, -1 of failure.
+ **/
 int
 worker_remove (worker *wrk,
                int     id)
@@ -288,7 +357,16 @@ worker_remove (worker *wrk,
 }
 
 
-
+/**
+ * Update watch flags.
+ *
+ * When called for a directory watch, update also the flags of all the
+ * dependent (child) watches.
+ *
+ * @param[in] wrk   A pointer to #worker.
+ * @param[in] w     A pointer to #watch.
+ * @param[in] flags A combination of the inotify watch flags.
+ **/
 static void
 worker_update_flags (worker *wrk, watch *w, uint32_t flags)
 {
@@ -316,7 +394,15 @@ worker_update_flags (worker *wrk, watch *w, uint32_t flags)
     }
 }
 
-
+/**
+ * Remove a list of watches, probably with ther parent watch.
+ *
+ * @param[in] wrk     A pointer to #worker.
+ * @param[in] parent  A pointer to the parent #watch.
+ * @param[in] items   A list of watches to remove. All items must be childs of
+ *     of the specified parent.
+ * @param[in] remove_self Set to 1 to remove the parent watch too.
+ **/
 void
 worker_remove_many (worker *wrk, watch *parent, dep_list *items, int remove_self)
 {
@@ -384,7 +470,14 @@ worker_remove_many (worker *wrk, watch *parent, dep_list *items, int remove_self
     dl_shallow_free (to_remove);
 }
 
-
+/**
+ * Update paths of child watches for a specified watch.
+ *
+ * It is necessary when renames in the watched directory occur.
+ *
+ * @param[in] wrk    A pointer to #worker.
+ * @param[in] parent A pointer to parent #watch.
+ **/
 void
 worker_update_paths (worker *wrk, watch *parent)
 {

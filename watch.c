@@ -31,6 +31,13 @@
 #include "watch.h"
 #include "sys/inotify.h"
 
+/**
+ * Get some file information by its file descriptor.
+ *
+ * @param[in]  fd      A file descriptor.
+ * @param[out] is_dir  A flag indicating directory.
+ * @param[out] inode   A file's inode number.
+ **/
 static void
 _file_information (int fd, int *is_dir, ino_t *inode)
 {
@@ -59,13 +66,26 @@ _file_information (int fd, int *is_dir, ino_t *inode)
     | IN_DELETE_SELF \
     )
 
-int watch_init (watch         *w,
-                watch_type_t   watch_type,
-                struct kevent *kv,
-                const char    *path,
-                const char    *entry_name,
-                uint32_t       flags,
-                int            index)
+/**
+ * Initialize a watch.
+ *
+ * @param[in,out] w          A pointer to a watch.
+ * @param[in]     watch_type The type of the watch.
+ * @param[in,out] kv         A pointer to the associated kqueue event.
+ * @param[in]     path       A full path to a file.
+ * @param[in]     entry_name A name of a watched file (for dependency watches).
+ * @param[in]     flags      A combination of the inotify watch flags.
+ * @param[in]     index      The index of a watch in the worker sets.
+ * @return 0 on success, -1 on failure.
+ **/
+int
+watch_init (watch         *w,
+	    watch_type_t   watch_type,
+	    struct kevent *kv,
+	    const char    *path,
+	    const char    *entry_name,
+	    uint32_t       flags,
+	    int            index)
 {
     assert (w != NULL);
     assert (kv != NULL);
@@ -105,6 +125,12 @@ int watch_init (watch         *w,
     return 0;
 }
 
+/**
+ * Reopen a watch.
+ *
+ * @param[in] w A pointer to a watch.
+ * @return 0 on success, -1 on failure.
+ **/
 int
 watch_reopen (watch *w)
 {
@@ -115,7 +141,7 @@ watch_reopen (watch *w)
 
     char *filename = path_concat (w->parent->filename, w->filename);
     if (filename == NULL) {
-        perror_msg ("Failed to create a filename to make reopen|");
+        perror_msg ("Failed to create a filename to make reopen");
         return -1;
     }
 
@@ -138,6 +164,11 @@ watch_reopen (watch *w)
     return 0;
 }
 
+/**
+ * Free a watch and all the associated memory.
+ *
+ * @param[in] w A pointer to a watch.
+ **/
 void
 watch_free (watch *w)
 {

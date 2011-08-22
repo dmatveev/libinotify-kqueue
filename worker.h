@@ -39,6 +39,10 @@ typedef enum {
     WCMD_REMOVE,     /* remove a watch */
 } worker_cmd_type_t;
 
+/**
+ * This structure represents a user call to the inotify API.
+ * It is also used to synchronize a user thread with a worker thread.
+ **/
 typedef struct worker_cmd {
     worker_cmd_type_t type;
     int retval;
