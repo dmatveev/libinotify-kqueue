@@ -330,7 +330,20 @@ dl_diff (dep_list **before, dep_list **after)
         } \
     } while (0)
 
-
+/**
+ * Detect and notify about moves in the watched directory.
+ *
+ * A move is what happens when you rename a file in a directory, and
+ * a new name is unique, i.e. you didnt overwrite any existing files
+ * with this one.
+ *
+ * @param[in,out] removed  A list of the removed files in the directory.
+ * @param[in,out] added    A list of the added files of the directory.
+ * @param[in]     cbs      A pointer to #traverse_cbs, an user-defined set of 
+ *     traverse callbacks.
+ * @param[in]     udata    A pointer to the user-defined data.
+ * @return 0 if no files were renamed, >0 otherwise.
+**/
 static int
 dl_detect_moves (dep_list           **removed, 
                  dep_list           **added, 
@@ -349,6 +362,29 @@ dl_detect_moves (dep_list           **removed,
          });
 }
 
+/**
+ * Detect and notify about replacements in the watched directory.
+ *
+ * Consider you are watching a directory foo with the folloing files
+ * insinde:
+ *
+ *    foo/bar
+ *    foo/baz
+ *
+ * A replacement in a watched directory is what happens when you invoke
+ *
+ *    mv /foo/bar /foo/bar
+ *
+ * i.e. when you replace a file in a watched directory with another file
+ * from the same directory.
+ *
+ * @param[in,out] removed  A list of the removed files in the directory.
+ * @param[in,out] current  A list with the current contents of the directory.
+ * @param[in]     cbs      A pointer to #traverse_cbs, an user-defined set of 
+ *     traverse callbacks.
+ * @param[in]     udata    A pointer to the user-defined data.
+ * @return 0 if no files were renamed, >0 otherwise.
+ **/
 static int
 dl_detect_replacements (dep_list           **removed,
                         dep_list           **current,
@@ -367,6 +403,33 @@ dl_detect_replacements (dep_list           **removed,
          });
 }
 
+/**
+ * Detect and notify about overwrites in the watched directory.
+ *
+ * Consider you are watching a directory foo with a file inside:
+ *
+ *    foo/bar
+ *
+ * And you also have a directory tmp with a file 1:
+ * 
+ *    tmp/1
+ *
+ * You do not watching directory tmp.
+ *
+ * An overwrite in a watched directory is what happens when you invoke
+ *
+ *    mv /tmp/1 /foo/bar
+ *
+ * i.e. when you overwrite a file in a watched directory with another file
+ * from the another directory.
+ *
+ * @param[in,out] previous A list with the previous contents of the directory.
+ * @param[in,out] current  A list with the current contents of the directory.
+ * @param[in]     cbs      A pointer to #traverse_cbs, an user-defined set of 
+ *     traverse callbacks.
+ * @param[in]     udata    A pointer to the user-defined data.
+ * @return 0 if no files were renamed, >0 otherwise.
+ **/
 static int
 dl_detect_overwrites (dep_list           **previous,
                       dep_list           **current,
@@ -384,6 +447,14 @@ dl_detect_overwrites (dep_list           **previous,
          });
 }
 
+
+/**
+ * Traverse a list and invoke a callback for each item.
+ * 
+ * @param[in] list  A #dep_list.
+ * @param[in] cb    A #single_entry_cb callback function.
+ * @param[in] udata A pointer to the user-defined data.
+ **/
 static void 
 dl_emit_single_cb_on (dep_list        *list,
                       single_entry_cb  cb,

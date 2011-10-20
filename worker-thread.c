@@ -109,108 +109,27 @@ process_command (worker *wrk)
     pthread_barrier_wait (&wrk->cmd.sync);
 }
 
-/**
- * Detect and notify about replacements in the watched directory.
- *
- * Consider you are watching a directory foo with the folloing files
- * insinde:
- *
- *    foo/bar
- *    foo/baz
- *
- * A replacement in a watched directory is what happens when you invoke
- *
- *    mv /foo/bar /foo/bar
- *
- * i.e. when you replace a file in a watched directory with another file
- * from the same directory.
- *
- * @param[in]     wrk     A pointer to #worker.
- * @param[in]     w       A pointer to #watch.
- * @param[in,out] removed A pointer to a pointer to a #dep_list - a list
- *     of items which are considered as deleted in the watched directory.
- * @param[in,out] current A pointer to a pointer to a #dep_list - the
- *     current directory listing.
- * @param[in]     be      A pointer to #bulk_events
- * @return The number of the detected replacemenets.
+/** 
+ * This structure represents a directory diff calculation context.
+ * It is passed to dl_calculate as user data and then is used in all
+ * the callbacks.
  **/
-
-/**
- * Detect and notify about overwrites in the watched directory.
- *
- * Consider you are watching a directory foo with a file inside:
- *
- *    foo/bar
- *
- * And you also have a directory tmp with a file 1:
- * 
- *    tmp/1
- *
- * You do not watching directory tmp.
- *
- * A replacement in a watched directory is what happens when you invoke
- *
- *    mv /tmp/1 /foo/bar
- *
- * i.e. when you overwrite a file in a watched directory with another file
- * from the another directory.
- *
- * @param[in]     wrk     A pointer to #worker.
- * @param[in]     w       A pointer to #watch.
- * @param[in,out] removed A pointer to a pointer to a #dep_list -
- *     the listing of the previous contents of a directory.
- * @param[in,out] current A pointer to a pointer to a #dep_list -
- *     the current directory listing (with removed replacements, see above).
- * @param[in]     be      A pointer to #bulk_events
- * @return The number of the detected overwrites.
- **/
-
-/**
- * Detect and notify about moves in the watched directory.
- *
- * A move is what happens when you rename a file in a directory, and
- * a new name is unique, i.e. you didnt overwrite any existing files
- * with this one.
- *
- * @param[in]     w       A pointer to #watch.
- * @param[in,out] removed A pointer to a pointer to #dep_list - the list of
- *     files considered as removed in the watched directory.
- * @param[in,out] added   A pointer to a pointer to #dep_list - the list of
- *     files considered as created in the watched directory.
- * @param[in]     be      A pointer to #bulk_events.
- **/
-
-/**
- * Inform about changes in the watched directory.
- *
- * This function traverses the list of items and for each item
- * it writes inotify notifications with the specified mask.
- *
- * The function is used to notify about IN_CREATE/IN_DELETE events
- *
- * @param[in] w    A pointer to #watch.
- * @param[in] list A list of items to notify about.
- * @param[in] flag A flag to set in the each inotify notification.
- * @param[in] be   A pointer to #bulk_events.
- **/
-
-/**
- * Detect and notify about the changes in the watched directory.
- *
- * This function is top-level and it operates with other specific routines
- * to notify about different sets of events in a different conditions.
- *
- * @param[in] wrk   A pointer to #worker.
- * @param[in] w     A pointer to #watch.
- * @param[in] event A pointer to the received kqueue event.
- **/
-
 typedef struct {
     worker *wrk;
     watch *w;
     bulk_events *be;
 } handle_context;
 
+/**
+ * Produce an IN_CREATE notification for a new file and start wathing on it.
+ *
+ * This function is used as a callback and is invoked from the dep-list
+ * routines.
+ *
+ * @param[in] udata  A pointer to user data (#handle_context).
+ * @param[in] path   File name of a new file.
+ * @param[in] inode  Inode number of a new file.
+ **/
 static void
 handle_added (void *udata, const char *path, ino_t inode)
 {
@@ -246,6 +165,16 @@ handle_added (void *udata, const char *path, ino_t inode)
     }
 }
 
+/**
+ * Produce an IN_DELETE notification for a removed file.
+ *
+ * This function is used as a callback and is invoked from the dep-list
+ * routines.
+ *
+ * @param[in] udata  A pointer to user data (#handle_context).
+ * @param[in] path   File name of the removed file.
+ * @param[in] inode  Inode number of the removed file.
+ **/
 static void
 handle_removed (void *udata, const char *path, ino_t inode)
 {
@@ -268,6 +197,19 @@ handle_removed (void *udata, const char *path, ino_t inode)
     }
 }
 
+/**
+ * Produce an IN_MOVED_FROM/IN_MOVED_TO notifications pair for a replaced file.
+ * Also stops wathing on the replaced file.
+ *
+ * This function is used as a callback and is invoked from the dep-list
+ * routines.
+ *
+ * @param[in] udata       A pointer to user data (#handle_context).
+ * @param[in] from_path   File name of the source file.
+ * @param[in] from_inode  Inode number of the source file.
+ * @param[in] to_path     File name of the replaced file.
+ * @param[in] to_inode    Inode number of the replaced file.
+**/
 static void
 handle_replaced (void       *udata,
                  const char *from_path,
@@ -318,6 +260,18 @@ handle_replaced (void       *udata,
     }
 }
 
+
+/**
+ * Produce an IN_DELETE/IN_CREATE notifications pair for an overwritten file.
+ * Reopen a watch for the overwritten file.
+ *
+ * This function is used as a callback and is invoked from the dep-list
+ * routines.
+ *
+ * @param[in] udata  A pointer to user data (#handle_context).
+ * @param[in] path   File name of the overwritten file.
+ * @param[in] inode  Inode number of the overwritten file.
+ **/
 static void
 handle_overwritten (void *udata, const char *path, ino_t inode)
 {
@@ -369,6 +323,18 @@ handle_overwritten (void *udata, const char *path, ino_t inode)
     }
 }
 
+/**
+ * Produce an IN_MOVED_FROM/IN_MOVED_TO notifications pair for a renamed file.
+ *
+ * This function is used as a callback and is invoked from the dep-list
+ * routines.
+ *
+ * @param[in] udata       A pointer to user data (#handle_context).
+ * @param[in] from_path   The old name of the file.
+ * @param[in] from_inode  Inode number of the old file.
+ * @param[in] to_path     The new name of the file.
+ * @param[in] to_inode    Inode number of the new file.
+**/
 static void
 handle_moved (void       *udata,
               const char *from_path,
@@ -408,6 +374,15 @@ handle_moved (void       *udata,
     }
 }
 
+/**
+ * Remove the appropriate watches if the files were removed from the directory.
+ * 
+ * This function is used as a callback and is invoked from the dep-list
+ * routines.
+ *
+ * @param[in] udata  A pointer to user data (#handle_context).
+ * @param[in] list   A list of the removed files. 
+ **/
 static void
 handle_many_removed (void *udata, const dep_list *list)
 {
@@ -419,6 +394,14 @@ handle_many_removed (void *udata, const dep_list *list)
     }
 }
 
+/**
+ * Update file names for the renamed files.
+ *
+ * This function is used as a callback and is invoked from the dep-list
+ * routines.
+ *
+ * @param[in] udata  A pointer to user data (#handle_context).
+ **/
 static void
 handle_names_updated (void *udata)
 {
@@ -443,6 +426,16 @@ static const traverse_cbs cbs = {
     handle_names_updated,
 };
 
+/**
+ * Detect and notify about the changes in the watched directory.
+ *
+ * This function is top-level and it operates with other specific routines
+ * to notify about different sets of events in a different conditions.
+ *
+ * @param[in] wrk   A pointer to #worker.
+ * @param[in] w     A pointer to #watch.
+ * @param[in] event A pointer to the received kqueue event.
+ **/
 void
 produce_directory_diff (worker *wrk, watch *w, struct kevent *event)
 {
