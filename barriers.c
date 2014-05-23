@@ -19,6 +19,9 @@ ik_barrier_impl_init (ik_barrier_impl *impl, int count)
 
     pthread_mutex_init (&impl->mtx, NULL);
     pthread_cond_init  (&impl->cnd, NULL);
+
+    pthread_mutex_init (&impl->mtx_end, NULL);
+    pthread_cond_init  (&impl->cnd_end, NULL);
 }
 
 
@@ -56,7 +59,10 @@ ik_barrier_impl_wait (ik_barrier_impl *impl)
         }
     }
 
-    while (impl->sleeping != 0);
+    if (impl->sleeping)
+        pthread_cond_wait (&impl->cnd_end, &impl->mtx_end);
+    else
+        pthread_cond_broadcast (&impl->cnd_end);
 }
 
 
