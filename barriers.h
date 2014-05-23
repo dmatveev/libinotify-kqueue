@@ -11,6 +11,9 @@ typedef struct {
 
     pthread_mutex_t mtx;     /* barrier's internal mutex.. */
     pthread_cond_t  cnd;     /* ..and a condition variable */
+
+    pthread_mutex_t mtx_end; /* barrier's internal mutex.. */
+    pthread_cond_t  cnd_end; /* ..and a condition variable */
 } ik_barrier_impl;
 
 #define WITHOUT_BARRIERS
