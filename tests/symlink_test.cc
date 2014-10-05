@@ -73,8 +73,7 @@ void symlink_test::run ()
 
         cons.output.wait ();
         received = cons.output.registered ();
-        should ("No IN_ATTRIB after touching symlink",
-                !contains (received, event ("bar", wid, IN_ATTRIB)));
+        should ("No IN_ATTRIB after touching symlink", received.empty());
 
 
         cons.output.reset ();
@@ -84,8 +83,7 @@ void symlink_test::run ()
 
         cons.output.wait ();
         received = cons.output.registered ();
-        should ("No IN_ATTRIB after touching symlink source file",
-                !contains (received, event ("bar", wid, IN_ATTRIB)));
+        should ("No IN_ATTRIB after touching symlink source file", received.empty());
 
 
         cons.output.reset ();
@@ -95,8 +93,7 @@ void symlink_test::run ()
 
         cons.output.wait ();
         received = cons.output.registered ();
-        should ("No IN_MODIFY after modifying a file via symlink",
-                !contains (received, event ("bar", wid, IN_MODIFY)));
+        should ("No IN_MODIFY after modifying a file via symlink", received.empty());
 
 
         cons.output.reset ();
@@ -106,8 +103,7 @@ void symlink_test::run ()
 
         cons.output.wait ();
         received = cons.output.registered ();
-        should ("No IN_MODIFY after modifying symlink source file",
-                !contains (received, event ("bar", wid, IN_MODIFY)));
+        should ("No IN_MODIFY after modifying symlink source file", received.empty());
 
 
         cons.output.reset ();
@@ -188,8 +184,7 @@ void symlink_test::run ()
 
         cons.output.wait ();
         received = cons.output.registered ();
-        should ("No IN_DELETE_SELF on removing a symlink",
-                !contains (received, event ("", wid, IN_DELETE_SELF)));
+        should ("No IN_DELETE_SELF on removing a symlink", received.empty());
 
         cons.input.interrupt ();
     }
@@ -199,7 +194,7 @@ void symlink_test::run ()
         events::iterator iter;
         int wid = 0;
 
-        cons.input.setup ("slt-wd3/bar",
+        cons.input.setup ("slt-wd3/baz",
                           IN_ATTRIB | IN_MODIFY
                           | IN_CREATE | IN_DELETE
                           | IN_MOVED_FROM | IN_MOVED_TO
@@ -207,9 +202,51 @@ void symlink_test::run ()
                           | IN_DONT_FOLLOW);
         cons.output.wait ();
         wid = cons.output.added_watch_id ();
+        should ("Start watch successfully on a symlink file with IN_DONT_FOLLOW",
+                wid != -1);
 
-        should("Do not follow symlinks witch IN_DONT_FOLLOW",
-               wid == -1);
+        cons.output.reset ();
+        cons.input.receive ();
+
+        system ("echo hello >> slt-wd1/foo");
+
+        cons.output.wait ();
+        received = cons.output.registered ();
+        should ("No IN_MODIFY after modifying symlink source file",
+                !contains (received, event ("", wid, IN_MODIFY)));
+
+
+        cons.output.reset ();
+        cons.input.receive ();
+
+        system ("echo hello >> slt-wd3/baz");
+
+        cons.output.wait ();
+        received = cons.output.registered ();
+        should ("No IN_MODIFY after modifying symlink source file",
+                !contains (received, event ("", wid, IN_MODIFY)));
+
+
+        cons.output.reset ();
+        cons.input.receive ();
+
+        system ("mv slt-wd3/baz slt-wd3/bazz");
+
+        cons.output.wait ();
+        received = cons.output.registered ();
+        should ("Receive IN_MOVE_SELF after moving the symlink",
+                contains (received, event ("", wid, IN_MOVE_SELF)));
+
+
+        cons.output.reset ();
+        cons.input.receive ();
+
+        system ("rm slt-wd3/bazz");
+
+        cons.output.wait ();
+        received = cons.output.registered ();
+        should ("Receive IN_DELETE_SELF after removing the symlink",
+                contains (received, event ("", wid, IN_DELETE_SELF)));
 
         cons.input.interrupt ();
     }
