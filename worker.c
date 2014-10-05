@@ -252,7 +252,7 @@ worker_add_dependencies (worker        *wrk,
                                                      parent->flags,
                                                      WATCH_DEPENDENCY);
                 if (neww == NULL) {
-                    perror_msg ("Failed to start watching a dependency %s of %s",
+                    perror_msg ("Failed to start watching a dependency %s of %s. Note that symlinks are skipped.",
                                 path,
                                 iter->path);
                 } else {

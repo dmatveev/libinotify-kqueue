@@ -100,10 +100,15 @@ watch_init (watch         *w,
     assert (kv != NULL);
     assert (path != NULL);
 
+    int o_flags = O_RDONLY;
+    if (watch_type == WATCH_DEPENDENCY) {
+        o_flags |= O_NOFOLLOW;
+    }
+
     memset (w, 0, sizeof (watch));
     memset (kv, 0, sizeof (struct kevent));
 
-    w->fd = open (path, O_RDONLY);
+    w->fd = open (path, o_flags);
     if (w->fd == -1) {
         perror_msg ("Failed to open file %s", path);
         return -1;

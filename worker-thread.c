@@ -493,7 +493,6 @@ produce_directory_diff (worker *wrk, watch *w, struct kevent *event)
         perror_msg ("Failed to create a listing for directory %s",
                     w->filename);
         dl_shallow_free (was);
-        printf("Bye!\n");
         return;
     }
 
