@@ -29,6 +29,7 @@
 #include <sys/types.h>
 #include <sys/stat.h> /* stat */
 #include <stdio.h>    /* snprintf */
+#include <errno.h>
 
 #include "utils.h"
 #include "conversions.h"
@@ -101,7 +102,7 @@ watch_init (watch         *w,
     assert (path != NULL);
 
     int o_flags = O_RDONLY;
-    if (watch_type == WATCH_DEPENDENCY) {
+    if (watch_type == WATCH_DEPENDENCY || flags & IN_DONT_FOLLOW) {
         o_flags |= O_NOFOLLOW;
     }
 
@@ -110,7 +111,11 @@ watch_init (watch         *w,
 
     w->fd = open (path, o_flags);
     if (w->fd == -1) {
-        perror_msg ("Failed to open file %s", path);
+        if (errno == EFTYPE && watch_type == WATCH_USER) {
+            fprintf (stderr, "libinotify_kqueue does not support watching symlinks as regular files\n");
+        } else {
+            perror_msg ("Failed to open file %s", path);
+        }
         return -1;
     }
 

@@ -223,7 +223,7 @@ void symlink_test::run ()
 
         cons.output.wait ();
         received = cons.output.registered ();
-        should ("No IN_MODIFY after modifying symlink source file",
+        should ("No IN_MODIFY after modifying file via symlink",
                 !contains (received, event ("", wid, IN_MODIFY)));
 
 
