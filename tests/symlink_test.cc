@@ -36,6 +36,7 @@ void symlink_test::setup ()
     system ("mkdir slt-wd2");
     system ("mkdir slt-wd3");
     system ("ln -s $PWD/slt-wd1/foo $PWD/slt-wd3/bar");
+    system ("ln -s $PWD/slt-wd1/foo $PWD/slt-wd3/baz");
 }
 
 void symlink_test::run ()
@@ -189,6 +190,26 @@ void symlink_test::run ()
         received = cons.output.registered ();
         should ("No IN_DELETE_SELF on removing a symlink",
                 !contains (received, event ("", wid, IN_DELETE_SELF)));
+
+        cons.input.interrupt ();
+    }
+    /* Test IN_DONT_FOLLOW */
+    {   consumer cons;
+        events received;
+        events::iterator iter;
+        int wid = 0;
+
+        cons.input.setup ("slt-wd3/bar",
+                          IN_ATTRIB | IN_MODIFY
+                          | IN_CREATE | IN_DELETE
+                          | IN_MOVED_FROM | IN_MOVED_TO
+                          | IN_MOVE_SELF | IN_DELETE_SELF
+                          | IN_DONT_FOLLOW);
+        cons.output.wait ();
+        wid = cons.output.added_watch_id ();
+
+        should("Do not follow symlinks witch IN_DONT_FOLLOW",
+               wid == -1);
 
         cons.input.interrupt ();
     }
