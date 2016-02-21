@@ -150,7 +150,7 @@ worker_cmd_release (worker_cmd *cmd)
 static int
 pipe_init (int fildes[2], int flags)
 {
-    if (socketpair (AF_UNIX, SOCK_STREAM, 0, fildes) == -1) {
+    if (socketpair (AF_UNIX, SOCK_NONBLOCK|SOCK_STREAM, 0, fildes) == -1) {
         perror_msg ("Failed to create a socket pair");
         return -1;
     }
