@@ -1,5 +1,6 @@
 /*******************************************************************************
   Copyright (c) 2011-2014 Dmitry Matveev <me@dmitrymatveev.co.uk>
+  Copyright (c) 2014-2016 Vladimir Kondratiev <wulf@cicgroup.ru>
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
@@ -25,14 +26,13 @@
 
 #include "compat.h"
 
-#include <sys/uio.h> /* iovec */
-
 #include <pthread.h>
 
 typedef struct worker worker;
 
 #include "worker-thread.h"
 #include "dep-list.h"
+#include "event-queue.h"
 #include "inotify-watch.h"
 #include "watch.h"
 
@@ -63,29 +63,37 @@ typedef struct worker_cmd {
         int rm_id;
     };
 
-    pthread_barrier_t sync;
+    sem_t sync_sem;
 } worker_cmd;
 
 void worker_cmd_init    (worker_cmd *cmd);
 void worker_cmd_add     (worker_cmd *cmd, const char *filename, uint32_t mask);
 void worker_cmd_remove  (worker_cmd *cmd, int watch_id);
+void worker_cmd_post    (worker_cmd *cmd);
 void worker_cmd_wait    (worker_cmd *cmd);
 void worker_cmd_release (worker_cmd *cmd);
 
 struct worker {
     int kq;                /* kqueue descriptor */
     volatile int io[2];    /* a socket pair */
-    struct iovec *iov;     /* inotify events to send */
-    int iovcnt;            /* number of events enqueued */
-    int iovalloc;          /* number of iovs allocated */
     pthread_t thread;      /* worker thread */
     SLIST_HEAD(, i_watch) head; /* linked list of inotify watches */
-    volatile int closed;   /* closed flag */
 
     pthread_mutex_t mutex; /* worker mutex */
+    _Atomic(uint) mutex_rc;/* worker mutex sleepers/holders refcount */
     worker_cmd cmd;        /* operation to perform on a worker */
+    event_queue eq;        /* inotify events queue */
 };
 
+#define WORKER_LOCK(wrk) do { \
+    atomic_fetch_add (&(wrk)->mutex_rc, 1); \
+    pthread_mutex_lock (&(wrk)->mutex); \
+} while (0)
+#define WORKER_UNLOCK(wrk) do { \
+    assert (atomic_load (&(wrk)->mutex_rc) > 0); \
+    pthread_mutex_unlock (&(wrk)->mutex); \
+    atomic_fetch_sub (&(wrk)->mutex_rc, 1); \
+} while (0)
 
 worker* worker_create         (int flags);
 void    worker_free           (worker *wrk);

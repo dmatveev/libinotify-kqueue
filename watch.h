@@ -1,5 +1,6 @@
 /*******************************************************************************
   Copyright (c) 2011 Dmitry Matveev <me@dmitrymatveev.co.uk>
+  Copyright (c) 2014-2016 Vladimir Kondratiev <wulf@cicgroup.ru>
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
@@ -39,8 +40,8 @@ typedef mode_t watch_flags_t;
 
 #define WF_ISSUBWATCH S_IXOTH /* a type of watch */
 #define WF_DELETED    S_IROTH /* file`s link count == 0 */
-#define WF_MODIFIED   S_IWOTH /* file has been modified i.e. received
-                               * NOTE_WRITE since last NOTE_CLOSE event */
+#define WF_SKIP_NEXT  S_IWOTH /* Some evens (open/close/read) should be skipped
+                               * on the next round as produced by libinotify */
 
 typedef enum watch_type {
     WATCH_USER,

@@ -1,5 +1,6 @@
 /*******************************************************************************
   Copyright (c) 2011-2014 Dmitry Matveev <me@dmitrymatveev.co.uk>
+  Copyright (c) 2014-2016 Vladimir Kondratiev <wulf@cicgroup.ru>
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
@@ -39,6 +40,7 @@
 
 #include "sys/inotify.h"
 
+#include "event-queue.h"
 #include "utils.h"
 #include "worker-thread.h"
 #include "worker.h"
@@ -56,7 +58,7 @@ void worker_cmd_init (worker_cmd *cmd)
 {
     assert (cmd != NULL);
     memset (cmd, 0, sizeof (worker_cmd));
-    pthread_barrier_init (&cmd->sync, NULL, 2);
+    sem_init (&cmd->sync_sem, 0, 0);
 }
 
 /**
@@ -112,10 +114,19 @@ worker_cmd_reset (worker_cmd *cmd)
 }
 
 /**
- * Wait on a worker command.
+ * Signal user thread if worker command is done
  *
- * This function is used by both user and worker threads for
- * synchronization.
+ * @param[in] cmd A pointer to #worker_cmd.
+ **/
+void
+worker_cmd_post (worker_cmd *cmd)
+{
+    assert (cmd != NULL);
+    sem_post(&cmd->sync_sem);
+}
+
+/**
+ * Wait for worker command to complete
  *
  * @param[in] cmd A pointer to #worker_cmd.
  **/
@@ -123,7 +134,8 @@ void
 worker_cmd_wait (worker_cmd *cmd)
 {
     assert (cmd != NULL);
-    pthread_barrier_wait (&cmd->sync);
+    do { /* NOTHING */
+    } while (sem_wait(&cmd->sync_sem) == -1 && errno == EINTR);
 }
 
 /**
@@ -137,7 +149,7 @@ void
 worker_cmd_release (worker_cmd *cmd)
 {
     assert (cmd != NULL);
-    pthread_barrier_destroy (&cmd->sync);
+    sem_destroy (&cmd->sync_sem);
 }
 
 /**
@@ -154,6 +166,11 @@ pipe_init (int fildes[2], int flags)
         perror_msg ("Failed to create a socket pair");
         return -1;
     }
+
+#ifdef SO_NOSIGPIPE
+     int on = 1;
+     setsockopt (fildes[KQUEUE_FD], SOL_SOCKET, SO_NOSIGPIPE, &on, sizeof(on));
+#endif
 
     if (set_cloexec_flag (fildes[KQUEUE_FD], 1) == -1) {
         perror_msg ("Failed to set cloexec flag on socket");
@@ -190,7 +207,7 @@ worker*
 worker_create (int flags)
 {
     pthread_attr_t attr;
-    struct kevent ev;
+    struct kevent ev[2];
     sigset_t set, oset;
     int result;
 
@@ -201,9 +218,6 @@ worker_create (int flags)
         goto failure;
     }
 
-    wrk->iovalloc = 0;
-    wrk->iovcnt = 0;
-    wrk->iov = NULL;
     wrk->io[INOTIFY_FD] = -1;
     wrk->io[KQUEUE_FD] = -1;
 
@@ -220,29 +234,42 @@ worker_create (int flags)
 
     SLIST_INIT (&wrk->head);
 
-    EV_SET (&ev,
+#ifdef EVFILT_USER
+    EV_SET (&ev[0], wrk->io[KQUEUE_FD], EVFILT_USER, EV_ADD | EV_CLEAR, 0, 0, 0);
+#else
+    EV_SET (&ev[0],
             wrk->io[KQUEUE_FD],
             EVFILT_READ,
             EV_ADD | EV_ENABLE | EV_CLEAR,
             NOTE_LOWAT,
             1,
             0);
+#endif
 
-    if (kevent (wrk->kq, &ev, 1, NULL, 0, NULL) == -1) {
+    EV_SET (&ev[1],
+            wrk->io[KQUEUE_FD],
+            EVFILT_WRITE,
+            EV_ADD | EV_ENABLE | EV_CLEAR,
+            0,
+            0,
+            0);
+
+    if (kevent (wrk->kq, ev, 2, NULL, 0, NULL) == -1) {
         perror_msg ("Failed to register kqueue event on pipe");
         goto failure;
     }
 
     pthread_mutex_init (&wrk->mutex, NULL);
+    atomic_init (&wrk->mutex_rc, 0);
 
     worker_cmd_init (&wrk->cmd);
+    event_queue_init (&wrk->eq);
 
     /* create a run a worker thread */
     pthread_attr_init (&attr);
     pthread_attr_setdetachstate (&attr, PTHREAD_CREATE_DETACHED);
 
-    sigemptyset (&set);
-    sigaddset (&set, SIGPIPE);
+    sigfillset (&set);
     pthread_sigmask (SIG_BLOCK, &set, &oset);
 
     result = pthread_create (&wrk->thread, &attr, worker_thread, wrk);
@@ -255,7 +282,6 @@ worker_create (int flags)
         goto failure;
     }
 
-    wrk->closed = 0;
     return wrk;
     
 failure:
@@ -278,7 +304,6 @@ worker_free (worker *wrk)
 {
     assert (wrk != NULL);
 
-    int i;
     i_watch *iw;
 
     if (wrk->io[KQUEUE_FD] != -1) {
@@ -287,21 +312,22 @@ worker_free (worker *wrk)
     }
 
     close (wrk->kq);
-    wrk->closed = 1;
 
-    worker_cmd_release (&wrk->cmd);
     while (!SLIST_EMPTY (&wrk->head)) {
         iw = SLIST_FIRST (&wrk->head);
         SLIST_REMOVE_HEAD (&wrk->head, next);
         iwatch_free (iw);
     }
 
-    for (i = 0; i < wrk->iovcnt; i++) {
-        free (wrk->iov[i].iov_base);
+    /* Wait for user thread(s) to release worker`s mutex */
+    while (atomic_load (&wrk->mutex_rc) > 0) {
+        WORKER_LOCK (wrk);
+        WORKER_UNLOCK (wrk);
     }
-    free (wrk->iov);
     pthread_mutex_destroy (&wrk->mutex);
-
+    /* And only after that destroy worker_cmd sync primitives */
+    worker_cmd_release (&wrk->cmd);
+    event_queue_free (&wrk->eq);
     free (wrk);
 }
 
@@ -375,8 +401,7 @@ worker_remove (worker *wrk,
     SLIST_FOREACH (iw, &wrk->head, next) {
 
         if (iw->wd == id) {
-            enqueue_event (iw, IN_IGNORED, NULL);
-            flush_events (wrk);
+            event_queue_enqueue (&wrk->eq, id, IN_IGNORED, 0, NULL);
             SLIST_REMOVE (&wrk->head, iw, i_watch, next);
             iwatch_free (iw);
             return 0;

@@ -1,5 +1,6 @@
 /*******************************************************************************
   Copyright (c) 2011-2014 Dmitry Matveev <me@dmitrymatveev.co.uk>
+  Copyright (c) 2014 Vladimir Kondratiev <wulf@cicgroup.ru>
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
@@ -53,7 +54,7 @@ void notifications_dir_test::run ()
 
     /* Add a watch */
     cons.input.setup ("ntfsdt-working",
-                      IN_ATTRIB | IN_MODIFY
+                      IN_ATTRIB | IN_MODIFY | IN_ACCESS
                       | IN_CREATE | IN_DELETE
                       | IN_MOVED_FROM | IN_MOVED_TO
                       | IN_MOVE_SELF | IN_DELETE_SELF);
@@ -78,6 +79,17 @@ void notifications_dir_test::run ()
             iter != received.end() && iter->flags & IN_ATTRIB);
     should ("the touch event for a directory contains IN_ISDIR in the flags",
             iter != received.end() && iter->flags & IN_ISDIR);
+
+
+    cons.output.reset ();
+    cons.input.receive ();
+
+    system ("ls ntfsdt-working >> /dev/null");
+
+    cons.output.wait ();
+    received = cons.output.registered ();
+    should ("receive IN_ACCESS event on reading of directory contents",
+            contains (received, event ("", wid, IN_ACCESS)));
 
 
     cons.output.reset ();
@@ -114,7 +126,7 @@ void notifications_dir_test::run ()
 
     
     cons.output.reset ();
-    cons.input.receive (5);
+    cons.input.receive ();
 
     system ("mv ntfsdt-working/1 ntfsdt-working/one");
 
@@ -256,7 +268,22 @@ void notifications_dir_test::run ()
 
     
     cons.output.reset ();
-    cons.input.receive (5);
+    cons.input.receive ();
+
+    system ("ls ntfsdt-working/dir >> /dev/null");
+
+    cons.output.wait ();
+    received = cons.output.registered ();
+
+    iter = std::find_if (received.begin(),
+                         received.end(),
+                         event_matcher (event ("dir", wid, IN_ACCESS)));
+    should ("receive IN_ACCESS with IN_ISDIR on reading of subdirectory contents",
+            iter != received.end() && iter->flags & IN_ISDIR);
+
+
+    cons.output.reset ();
+    cons.input.receive ();
 
     system ("mv ntfsdt-working/dir ntfsdt-working/dirr");
 
@@ -327,7 +354,7 @@ void notifications_dir_test::run ()
     wid = cons.output.added_watch_id ();
 
     cons.output.reset ();
-    cons.input.receive (4);
+    cons.input.receive ();
 
     system ("rm -rf ntfsdt-working-2");
 

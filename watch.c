@@ -1,5 +1,6 @@
 /*******************************************************************************
   Copyright (c) 2011-2014 Dmitry Matveev <me@dmitrymatveev.co.uk>
+  Copyright (c) 2014-2016 Vladimir Kondratiev <wulf@cicgroup.ru>
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
@@ -61,11 +62,13 @@ inotify_to_kqueue (uint32_t flags, watch_flags_t wf)
 #ifdef NOTE_CLOSE
     if (flags & IN_CLOSE_NOWRITE)
         result |= NOTE_CLOSE;
+#endif
+#ifdef NOTE_CLOSE_WRITE
     if (flags & IN_CLOSE_WRITE && S_ISREG (wf))
-        result |= (NOTE_CLOSE | NOTE_WRITE);
+        result |= NOTE_CLOSE_WRITE;
 #endif
 #ifdef NOTE_READ
-    if (flags & IN_ACCESS && S_ISREG (wf))
+    if (flags & IN_ACCESS && (S_ISREG (wf) || S_ISDIR (wf)))
         result |= NOTE_READ;
 #endif
     if (flags & IN_ATTRIB)
@@ -105,15 +108,15 @@ kqueue_to_inotify (uint32_t flags, watch_flags_t wf)
         result |= IN_OPEN;
 #endif
 #ifdef NOTE_CLOSE
-    if (flags & NOTE_CLOSE) {
-        if (wf & WF_MODIFIED && S_ISREG (wf))
-            result |= IN_CLOSE_WRITE;
-        else
-            result |= IN_CLOSE_NOWRITE;
-    }
+    if (flags & NOTE_CLOSE)
+        result |= IN_CLOSE_NOWRITE;
+#endif
+#ifdef NOTE_CLOSE_WRITE
+    if (flags & NOTE_CLOSE_WRITE)
+        result |= IN_CLOSE_WRITE;
 #endif
 #ifdef NOTE_READ
-    if (flags & NOTE_READ && S_ISREG (wf))
+    if (flags & NOTE_READ && (S_ISREG (wf) || S_ISDIR (wf)))
         result |= IN_ACCESS;
 #endif
 

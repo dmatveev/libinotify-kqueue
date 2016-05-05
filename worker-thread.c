@@ -1,5 +1,6 @@
 /*******************************************************************************
   Copyright (c) 2011-2014 Dmitry Matveev <me@dmitrymatveev.co.uk>
+  Copyright (c) 2014-2016 Vladimir Kondratiev <wulf@cicgroup.ru>
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
@@ -52,7 +53,7 @@ static void handle_moved (void *udata, dep_item *from_di, dep_item *to_di);
  * @param[in] di   A pointer to dependency item for subfiles (NULL for user).
  * @return 0 on success, -1 otherwise.
  **/
-int
+static int
 enqueue_event (i_watch *iw, uint32_t mask, const dep_item *di)
 {
     assert (iw != NULL);
@@ -68,17 +69,6 @@ enqueue_event (i_watch *iw, uint32_t mask, const dep_item *di)
         iw->is_closed = 1;
     }
 
-    if (wrk->iovcnt >= wrk->iovalloc) {
-        int to_allocate = wrk->iovcnt + 1;
-        void *ptr = realloc (wrk->iov, sizeof (struct iovec) * to_allocate);
-        if (ptr == NULL) {
-            perror_msg ("Failed to extend events to %d items", to_allocate);       
-            return -1;
-        }
-        wrk->iov = ptr;
-        wrk->iovalloc = to_allocate;
-    }
-
     const char *name = NULL;
     uint32_t cookie = 0;
     if (di != NULL) {
@@ -91,37 +81,12 @@ enqueue_event (i_watch *iw, uint32_t mask, const dep_item *di)
         }
     }
 
-    wrk->iov[wrk->iovcnt].iov_base = create_inotify_event (iw->wd, mask,
-        cookie, name, &wrk->iov[wrk->iovcnt].iov_len);
-
-    if (wrk->iov[wrk->iovcnt].iov_base != NULL) {
-        ++wrk->iovcnt;
-    } else {
-        perror_msg ("Failed to create a inotify event %x", mask);
+    if (event_queue_enqueue (&wrk->eq, iw->wd, mask, cookie, name) == -1) {
+        perror_msg ("Failed to enqueue a inotify event %x", mask);
         return -1;
     }
 
     return 0;
-}
-
-/**
- * Flush inotify events queue to socket
- *
- * @param[in] wrk A pointer to #worker.
- **/
-void
-flush_events (worker *wrk)
-{
-    if (safe_writev (wrk->io[KQUEUE_FD], wrk->iov, wrk->iovcnt) == -1) {
-        perror_msg ("Sending of inotify events to socket failed");
-    }
-
-    int i;
-    for (i = 0; i < wrk->iovcnt; i++) {
-        free (wrk->iov[i].iov_base);
-    }
-
-    wrk->iovcnt = 0;
 }
 
 /**
@@ -134,9 +99,11 @@ process_command (worker *wrk)
 {
     assert (wrk != NULL);
 
+#ifndef EVFILT_USER
     /* read a byte */
     char unused;
     safe_read (wrk->io[KQUEUE_FD], &unused, 1);
+#endif
 
     if (wrk->cmd.type == WCMD_ADD) {
         wrk->cmd.retval = worker_add_or_modify (wrk,
@@ -152,8 +119,7 @@ process_command (worker *wrk)
         return;
     }
 
-    /* TODO: is the situation when nobody else waits on a barrier possible? */
-    worker_cmd_wait (&wrk->cmd);
+    worker_cmd_post (&wrk->cmd);
 }
 
 /** 
@@ -386,10 +352,6 @@ produce_notifications (worker *wrk, struct kevent *event)
 
     uint32_t flags = event->fflags;
 
-    if (flags & NOTE_WRITE) {
-        w->flags |= WF_MODIFIED;
-    }
-
     if (!(w->flags & WF_ISSUBWATCH)) {
         /* Set deleted flag if no more links exist */
         if (flags & NOTE_DELETE &&
@@ -397,20 +359,28 @@ produce_notifications (worker *wrk, struct kevent *event)
                 w->flags |= WF_DELETED;
         }
 
-        if (flags & NOTE_WRITE && S_ISDIR (w->flags)) {
-            produce_directory_diff (iw, event);
-        }
-
 #if ! defined (DIRECTORY_LISTING_REWINDS) && \
     defined (NOTE_OPEN) && defined (NOTE_CLOSE)
         /* Mask events produced by open/closedir calls while directory diffing.
          * Kqueue coalesces both events as kevent is not called that time */
-        if (flags & (NOTE_OPEN | NOTE_CLOSE)
-          && S_ISDIR (w->flags) && w->flags & WF_MODIFIED) {
+        if (w->flags & WF_SKIP_NEXT) {
             flags &= ~(NOTE_OPEN | NOTE_CLOSE);
-            w->flags &= ~WF_MODIFIED;
         }
 #endif
+#ifdef NOTE_READ
+        /* Mask event produced by readdir call while directory diffing. */
+        if (w->flags & WF_SKIP_NEXT) {
+            flags &= ~NOTE_READ;
+        }
+#endif
+        if (S_ISDIR (w->flags)) {
+            w->flags &= ~WF_SKIP_NEXT;
+        }
+
+        if (flags & NOTE_WRITE && S_ISDIR (w->flags)) {
+            produce_directory_diff (iw, event);
+            w->flags |= WF_SKIP_NEXT;
+        }
 
         enqueue_event (iw, kqueue_to_inotify (flags, w->flags), NULL);
 
@@ -428,13 +398,6 @@ produce_notifications (worker *wrk, struct kevent *event)
             }
         }
     }
-    flush_events (wrk);
-
-#ifdef NOTE_CLOSE
-    if (flags & NOTE_CLOSE) {
-        w->flags &= ~WF_MODIFIED;
-    }
-#endif
 
     if (iw->is_closed) {
         worker_remove (wrk, iw->wd);
@@ -452,31 +415,36 @@ worker_thread (void *arg)
 {
     assert (arg != NULL);
     worker* wrk = (worker *) arg;
+    size_t sbspace = 0;
 
     for (;;) {
         struct kevent received;
+
+        if (sbspace > 0 && wrk->eq.count > 0) {
+            event_queue_flush (&wrk->eq, wrk->io[KQUEUE_FD], sbspace);
+            sbspace = 0;
+        }
 
         int ret = kevent (wrk->kq, NULL, 0, &received, 1, NULL);
         if (ret == -1) {
             perror_msg ("kevent failed");
             continue;
         }
-
         if (received.ident == wrk->io[KQUEUE_FD]) {
             if (received.flags & EV_EOF) {
-                wrk->closed = 1;
                 wrk->io[INOTIFY_FD] = -1;
                 worker_erase (wrk);
 
-                if (pthread_mutex_trylock (&wrk->mutex) == 0) {
-                    pthread_mutex_unlock (&wrk->mutex);
-                    worker_free (wrk);
-                }
-                /* If we could not lock on a worker, it means that an inotify
-                 * call (add_watch/rm_watch) has already locked it. In this
-                 * case worker will be freed by a caller (caller checks the
-                 * `closed' flag. */
+                /* Notify user threads waiting for add/rm_watch of grim news */
+                wrk->cmd.retval = -1;
+                wrk->cmd.error = EBADF;
+                worker_cmd_post (&wrk->cmd);
+
+                worker_free (wrk);
+
                 return NULL;
+            } else if (received.filter == EVFILT_WRITE) {
+                sbspace = received.data;
             } else {
                 process_command (wrk);
             }

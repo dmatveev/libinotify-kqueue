@@ -1,5 +1,6 @@
 /*******************************************************************************
   Copyright (c) 2011 Dmitry Matveev <me@dmitrymatveev.co.uk>
+  Copyright (c) 2014-2016 Vladimir Kondratiev <wulf@cicgroup.ru>
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
@@ -64,6 +65,7 @@ struct inotify_event* create_inotify_event (int         wd,
 
 ssize_t safe_read   (int fd, void *data, size_t size);
 ssize_t safe_write  (int fd, const void *data, size_t size);
+ssize_t safe_send   (int fd, const void *data, size_t size, int flags);
 ssize_t safe_writev (int fd, const struct iovec iov[], int iovcnt);
 
 int is_opened (int fd);

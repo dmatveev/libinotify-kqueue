@@ -1,5 +1,6 @@
 /*******************************************************************************
   Copyright (c) 2011 Dmitry Matveev <me@dmitrymatveev.co.uk>
+  Copyright (c) 2014-2016 Vladimir Kondratiev <wulf@cicgroup.ru>
 
   Copyright 2008, 2013, 2014
       The Board of Trustees of the Leland Stanford Junior University
@@ -38,6 +39,7 @@
 #include <assert.h>
 
 #include <sys/types.h>
+#include <sys/socket.h>/* send */
 #include <sys/stat.h>  /* fstat */
 #include <sys/uio.h>   /* writev */
 
@@ -86,13 +88,13 @@ create_inotify_event (int         wd,
 }
 
 
-#define SAFE_GENERIC_OP(fcn, fd, data, size)    \
+#define SAFE_GENERIC_OP(fcn, fd, data, size, ...)              \
     size_t total = 0;                           \
     if (fd == -1) {                             \
         return -1;                              \
     }                                           \
     while (size > 0) {                          \
-        ssize_t retval = fcn (fd, data, size);  \
+        ssize_t retval = fcn (fd, data, size, ##__VA_ARGS__);  \
         if (retval == -1) {                     \
             if (errno == EINTR) {               \
                 continue;                       \
@@ -132,6 +134,21 @@ ssize_t
 safe_write (int fd, const void *data, size_t size)
 {
     SAFE_GENERIC_OP (write, fd, data, size);
+}
+
+/**
+ * EINTR-ready version of send().
+ *
+ * @param[in] fd    A file descriptor to send to.
+ * @param[in] data  A buffer to send.
+ * @param[in] size  The number of bytes to send.
+ * @param[in] flags A send(3) flags.
+ * @return Number of bytes which were sent on success, -1 on failure.
+ **/
+ssize_t
+safe_send (int fd, const void *data, size_t size, int flags)
+{
+    SAFE_GENERIC_OP (send, fd, data, size, flags);
 }
 
 /**

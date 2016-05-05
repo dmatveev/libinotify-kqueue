@@ -139,6 +139,58 @@ AC_COMPILE_IFELSE(
 AC_MSG_RESULT($have_pthread_barrier)
 AM_CONDITIONAL(HAVE_PTHREAD_BARRIER, [test "$have_pthread_barrier" = "yes"])
 
+
+AC_MSG_CHECKING(for useable stdatomic.h)
+AC_COMPILE_IFELSE(
+[
+    AC_LANG_PROGRAM(
+    [
+        @%:@include <stdatomic.h>
+    ],
+    [
+        atomic_uint t;
+        atomic_init(&t, 0);
+        atomic_fetch_add(&t, 1);
+        atomic_fetch_sub(&t, 1);
+        atomic_load(&t);
+        return 0;
+    ])
+],
+[
+    AC_DEFINE([HAVE_STDATOMIC_H],[1],[Define to 1 if the system has useable stdatomic.h])
+    have_stdatomic_h=yes
+],
+    have_stdatomic_h=no
+)
+AC_MSG_RESULT($have_stdatomic_h)
+
+if test "$have_stdatomic_h" = "no"; then
+    AC_MSG_CHECKING(whether compiler supports atomic operations)
+    AC_RUN_IFELSE(
+    [
+        AC_LANG_PROGRAM(
+        [
+            @%:@include "compat/stdatomic.h"
+        ],
+        [
+            atomic_uint t;
+            atomic_init(&t, 0);
+            atomic_fetch_add(&t, 1);
+            atomic_fetch_sub(&t, 1);
+            return atomic_load(&t);
+        ])
+    ],
+    [
+        AC_DEFINE([HAVE_COMPAT_STDATOMIC_H],[1],[Define to 1 if the compiler supports atomic operations with compat/stdatomic.h])
+        have_compat_stdatomic_h=yes
+    ],
+        have_compat_stdatomic_h=no
+    )
+    AC_MSG_RESULT($have_compat_stdatomic_h)
+fi
+AM_CONDITIONAL(NO_STDATOMIC, [test "$have_stdatomic_h" = "no" -a "$have_compat_stdatomic_h" = "no"])
+
+
 AC_ARG_ENABLE([unsafe_fchdir],
     AS_HELP_STRING([--enable-unsafe-fchdir], [allow unsafe use of fchdir to track of watched directory path changes on its renaming]),
 [
@@ -255,7 +307,7 @@ AC_COMPILE_IFELSE(
 AC_MSG_RESULT($have_note_read)
 
 
-AC_MSG_CHECKING(for NODE_EXTEND on renaming of file in subdirectory)
+AC_MSG_CHECKING(for NOTE_EXTEND on renaming of file in subdirectory)
 rm -rf iktestdir
 mkdir iktestdir
 touch iktestfile
@@ -317,6 +369,47 @@ if test "$ac_cv_func_fdopendir" = "yes" -a "$have_o_evtonly" = "no" -a \
     \( "$have_note_open" = "yes" -o "$have_note_close" = "yes" \) ; then
     AC_DEFINE([DIRECTORY_LISTING_REWINDS], [1], [Define to 1 if reusing of watched dir filedes is necessary])
 fi
+
+
+CFLAGS="${CFLAGS} ${PTHREAD_CFLAGS}"
+LIBS="${LIBS} ${PTHREAD_LIBS}"
+AC_MSG_CHECKING(for SIGPIPE recipient)
+AC_RUN_IFELSE(
+[
+    AC_LANG_PROGRAM(
+    [[
+        #include <pthread.h>
+        #include <signal.h>
+        #include <unistd.h>
+
+        static volatile int catched = 0;
+        void sigpipe_handler(int sig) { catched = 1; }
+        void *test(void *args) {
+            sigset_t set;
+            int io[2];
+            sigemptyset(&set);
+            sigaddset(&set, SIGPIPE);
+            pthread_sigmask(SIG_BLOCK, &set, NULL);
+            pipe(io);
+            close(io[0]);
+            write(io[1], io, 1);
+            return NULL;
+        }
+    ]],
+    [[
+        pthread_t thread;
+        signal(SIGPIPE, sigpipe_handler);
+        if (pthread_create(&thread, NULL, test, NULL) == -1) return 1;
+        if (pthread_join(thread, NULL) != 0) return 1;
+        return catched;
+    ]])
+],
+    AC_MSG_RESULT(thread)
+,[
+    AC_DEFINE([SIGPIPE_RECIPIENT_IS_PROCESS],[1],[Define to 1 if SIGPIPE is process-wide signal])
+    AC_MSG_RESULT(process)
+]
+)
 
 
 AC_OUTPUT

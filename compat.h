@@ -1,5 +1,6 @@
 /*******************************************************************************
   Copyright (c) 2011-2014 Dmitry Matveev <me@dmitrymatveev.co.uk>
+  Copyright (c) 2014-2016 Vladimir Kondratiev <wulf@cicgroup.ru>
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
@@ -45,9 +46,40 @@
 #include <inttypes.h>
 #endif
 
+#ifndef __cplusplus /* requires stdbool.h */
+#ifdef HAVE_STDATOMIC_H
+#include <stdatomic.h>
+#elif defined (HAVE_COMPAT_STDATOMIC_H)
+#include "compat/stdatomic.h"
+#else
+#include "compat/ik_atomic.h"
+#endif
+#endif
+
+#ifdef __APPLE__
+#include <dispatch/dispatch.h>
+#define sem_t dispatch_semaphore_t
+#define sem_init(sem, pshared, value) ({ \
+    int ret_; \
+    *(sem) = dispatch_semaphore_create(value); \
+    ret_ = (*(sem) == NULL) ? -1 : 0; \
+    ret_; \
+})
+#define sem_wait(sem) (dispatch_semaphore_wait(*(sem), DISPATCH_TIME_FOREVER) * 0)
+#define sem_post(sem) (dispatch_semaphore_signal(*(sem)) * 0)
+#define sem_destroy(sem) ({ \
+    while (dispatch_semaphore_wait(*(sem), DISPATCH_TIME_NOW) == 0) {} \
+    dispatch_release(*(sem)); \
+    0; \
+})
+#else
+#include <semaphore.h>
+#endif
+
 #include <sys/stat.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <pthread.h>
 
 #ifndef DTTOIF
@@ -56,6 +88,20 @@
 
 #ifndef SIZE_MAX
 #define SIZE_MAX SIZE_T_MAX
+#endif
+
+/* FreeBSD 4.x doesn't have IOV_MAX exposed. */
+#ifndef IOV_MAX
+#if defined(__FreeBSD__) || defined(__APPLE__)
+#define IOV_MAX 1024
+#endif
+#endif
+
+#ifndef AT_FDCWD
+#define AT_FDCWD		-100
+#endif
+#ifndef AT_SYMLINK_NOFOLLOW
+#define AT_SYMLINK_NOFOLLOW	0x200 /* Do not follow symbolic links */
 #endif
 
 #ifndef HAVE_PTHREAD_BARRIER
@@ -70,19 +116,16 @@ typedef struct {
 
 /* barrier attributes are not supported */
 typedef void pthread_barrierattr_t;
+#endif
 
+__BEGIN_DECLS
+
+#ifndef HAVE_PTHREAD_BARRIER
 void pthread_barrier_init    (pthread_barrier_t *impl,
                               const pthread_barrierattr_t *attr,
                               unsigned count);
 void pthread_barrier_wait    (pthread_barrier_t *impl);
 void pthread_barrier_destroy (pthread_barrier_t *impl);
-#endif
-
-#ifndef AT_FDCWD
-#define AT_FDCWD		-100
-#endif
-#ifndef AT_SYMLINK_NOFOLLOW
-#define AT_SYMLINK_NOFOLLOW	0x200 /* Do not follow symbolic links */
 #endif
 
 #ifndef HAVE_ATFUNCS
@@ -98,5 +141,7 @@ DIR *fdopendir (int fd);
 #ifndef HAVE_FSTATAT
 int fstatat (int fd, const char *path, struct stat *buf, int flag);
 #endif
+
+__END_DECLS
 
 #endif /* __COMPAT_H__ */

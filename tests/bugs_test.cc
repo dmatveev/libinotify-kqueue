@@ -1,5 +1,6 @@
 /*******************************************************************************
   Copyright (c) 2014 Dmitry Matveev <me@dmitrymatveev.co.uk>
+  Copyright (c) 2014 Vladimir Kondratiev <wulf@cicgroup.ru>
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
@@ -54,7 +55,7 @@ void bugs_test::run ()
     wid = cons.output.added_watch_id ();
 
     cons.output.reset ();
-    cons.input.receive (2);
+    cons.input.receive ();
 
     system ("rm bugst-workdir/1");
     system ("rm bugst-workdir/2");
@@ -69,7 +70,7 @@ void bugs_test::run ()
 
     /* Test for extraneous IN_ATTRIB event on subdirectory creation and deletion */
     cons.output.reset ();
-    cons.input.receive (2);
+    cons.input.receive ();
 
     system ("mkdir bugst-workdir/1");
 
@@ -81,7 +82,7 @@ void bugs_test::run ()
             !contains (received, event ("", wid, IN_ATTRIB)));
 
     cons.output.reset ();
-    cons.input.receive (2);
+    cons.input.receive ();
 
     system ("rmdir bugst-workdir/1");
 

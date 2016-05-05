@@ -1,5 +1,6 @@
 /*******************************************************************************
   Copyright (c) 2011 Dmitry Matveev <me@dmitrymatveev.co.uk>
+  Copyright (c) 2014-2016 Vladimir Kondratiev <wulf@cicgroup.ru>
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
@@ -29,7 +30,5 @@
 #include "worker.h"
 
 void* worker_thread (void *arg);
-int   enqueue_event (i_watch *iw, uint32_t mask, const dep_item *di);
-void  flush_events  (worker *wrk);
 
 #endif /* __WORKER_THREAD_H__ */

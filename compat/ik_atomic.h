@@ -1,5 +1,5 @@
 /*******************************************************************************
-  Copyright (c) 2011 Dmitry Matveev <me@dmitrymatveev.co.uk>
+  Copyright (c) 2015 Vladimir Kondratiev <wulf@cicgroup.ru>
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
@@ -20,21 +20,29 @@
   THE SOFTWARE.
 *******************************************************************************/
 
-#ifndef __PLATFORM_HH__
-#define __PLATFORM_HH__
+#include <pthread.h>
 
-#include <cstddef> // NULL
-#include <string>
+extern pthread_mutex_t ik_atomic_mutex;
 
-#include "compat.h"
-
-#ifdef __linux__
-#  include <sys/inotify.h>
-#elif defined (__NetBSD__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
-      defined(__APPLE__) || defined(__DragonFly__)
-#  include "sys/inotify.h"
-#else
-#  error Currently unsupported
-#endif
-
-#endif //  __PLATFORM_HH__
+#define	_Atomic(T)		T volatile
+#define	atomic_init(object, value)	(*(object) = (value))
+#define atomic_load(object) ({ \
+    pthread_mutex_lock (&ik_atomic_mutex); \
+    typeof (*(object)) ret_ = *(object); \
+    pthread_mutex_unlock (&ik_atomic_mutex); \
+    ret_; \
+})
+#define atomic_fetch_add(object, operand) ({ \
+    pthread_mutex_lock (&ik_atomic_mutex); \
+    typeof (*(object)) ret_ = *(object); \
+    *(object) += (operand); \
+    pthread_mutex_unlock (&ik_atomic_mutex); \
+    ret_; \
+})
+#define atomic_fetch_sub(object, operand) ({ \
+    pthread_mutex_lock (&ik_atomic_mutex); \
+    typeof (*(object)) ret_ = *(object); \
+    *(object) -= (operand); \
+    pthread_mutex_unlock (&ik_atomic_mutex); \
+    ret_; \
+})

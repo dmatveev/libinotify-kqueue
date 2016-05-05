@@ -1,5 +1,5 @@
 /*******************************************************************************
-  Copyright (c) 2011 Dmitry Matveev <me@dmitrymatveev.co.uk>
+  Copyright (c) 2016 Vladimir Kondratiev <wulf@cicgroup.ru>
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
@@ -20,21 +20,41 @@
   THE SOFTWARE.
 *******************************************************************************/
 
-#ifndef __PLATFORM_HH__
-#define __PLATFORM_HH__
+#ifndef __EVENT_QUEUE_H__
+#define __EVENT_QUEUE_H__
 
-#include <cstddef> // NULL
-#include <string>
+#include <sys/types.h> /* uint32_t */
+#include <sys/socket.h>/* SO_NOSIGPIPE */
+#include <sys/uio.h>   /* iovec */
 
-#include "compat.h"
+#include "config.h"
 
-#ifdef __linux__
-#  include <sys/inotify.h>
-#elif defined (__NetBSD__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
-      defined(__APPLE__) || defined(__DragonFly__)
-#  include "sys/inotify.h"
-#else
-#  error Currently unsupported
+/* linux`s /proc/sys/fs/inotify/max_queued_events counterpart */
+#define MAX_QUEUED_EVENTS	16384
+
+#if defined (SIGPIPE_RECIPIENT_IS_PROCESS) && \
+    (defined (MSG_NOSIGNAL) || defined (SO_NOSIGPIPE))
+#define	AVOID_SIGPIPE_WITH_SEND	1
 #endif
 
-#endif //  __PLATFORM_HH__
+typedef struct event_queue {
+    struct iovec *iov; /* inotify events to send */
+    int count;         /* number of events enqueued */
+    int allocated;     /* number of iovs allocated */
+#ifdef AVOID_SIGPIPE_WITH_SEND
+    char *msgbuf;      /* flat version of iov */
+    size_t msgalloc;   /* size of msgbuf */
+#endif
+} event_queue;
+
+void event_queue_init (event_queue *eq);
+void event_queue_free (event_queue *eq);
+
+int  event_queue_enqueue (event_queue *eq,
+                          int          wd,
+                          uint32_t     mask,
+                          uint32_t     cookie,
+                          const char  *name);
+void event_queue_flush   (event_queue *eq, int fd, size_t sbspace);
+
+#endif /* __EVENT_QUEUE_H__ */

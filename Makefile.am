@@ -12,16 +12,13 @@ nobase_include_HEADERS = sys/inotify.h
 libinotify_la_SOURCES = \
     utils.c \
     dep-list.c \
+    event-queue.c \
     inotify-watch.c \
     watch-set.c \
     watch.c \
     worker-thread.c \
     worker.c \
     controller.c
-
-if !HAVE_PTHREAD_BARRIER
-libinotify_la_SOURCES += compat/pthread_barrier.c
-endif
 
 if !HAVE_ATFUNCS
 libinotify_la_SOURCES += compat/atfuncs.c
@@ -37,6 +34,10 @@ endif
 
 if !HAVE_FSTATAT
 libinotify_la_SOURCES += compat/fstatat.c
+endif
+
+if NO_STDATOMIC
+libinotify_la_SOURCES += compat/ik_atomic.c
 endif
 
 libinotify_la_CFLAGS = -I. -DNDEBUG @PTHREAD_CFLAGS@
