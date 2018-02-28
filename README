@@ -1,9 +1,9 @@
-*************************************************************
-** WARNING: This is not the "official" repository anymore. **
-** Please obtain use this repository instead:              **
-**                                                         **
-**      https://github.com/dmatveev/libinotify-kqueue      **
-*************************************************************
+*********************************************************************
+** WARNING: This is not the "official" repository anymore.         **
+** Please obtain use this repository instead:                      **
+**                                                                 **
+**      https://github.com/libinotify-kqueue/libinotify-kqueue     **
+*********************************************************************
 
 
 libinotify-kqueue
